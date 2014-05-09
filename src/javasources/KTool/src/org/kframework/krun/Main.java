@@ -32,6 +32,7 @@ import org.apache.commons.io.FilenameUtils;
 import org.kframework.backend.java.ksimulation.Waitor;
 import org.kframework.backend.java.symbolic.JavaSymbolicKRun;
 import org.kframework.backend.maude.krun.MaudeKRun;
+import org.kframework.backend.symbolic.krun.SymbolicKRun;
 import org.kframework.backend.unparser.UnparserFilterNew;
 import org.kframework.compile.ConfigurationCleaner;
 import org.kframework.compile.FlattenModules;
@@ -222,8 +223,10 @@ public class Main {
     }
 
     private static KRun obtainKRun(Context context) {
-        if (K.backend.equals("maude") || K.backend.equals("symbolic")) {
+        if (K.backend.equals("maude")) {
             return new MaudeKRun(context, sw);
+        } else if (K.backend.equals("symbolic")) {
+            return new SymbolicKRun(context, sw);
         } else if (K.backend.equals("java")) {
             try {
                 return new JavaSymbolicKRun(context);
