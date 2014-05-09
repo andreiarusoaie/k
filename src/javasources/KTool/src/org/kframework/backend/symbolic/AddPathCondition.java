@@ -111,7 +111,7 @@ public class AddPathCondition extends CopyOnWriteTransformer {
             if (context.kompileOptions.experimental.smt != SMTSolver.NONE) {
                 List<Term> myList = new ArrayList<Term>();
                 myList.add(condition);
-                myList.add(checkSat(pathCondition, context));
+//                myList.add(checkSat(pathCondition, context));
                 if (!(pathCondition instanceof Variable)){
                     cond = new KApp(KLabelConstant.ANDBOOL_KLABEL, new KList(myList));
                     // add transition attribute
