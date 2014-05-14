@@ -16,19 +16,21 @@ public class Z3Tests {
             Solver solver = context.MkSolver();
 
 
-            // formula
-            BoolExpr a = context.MkBoolConst("a");
-            IntExpr i = context.MkIntConst("i");
-            IntExpr j = context.MkIntConst("j");
+//            // formula
+//            BoolExpr a = context.MkBoolConst("a");
+//            IntExpr i = context.MkIntConst("i");
+//            IntExpr j = context.MkIntConst("j");
+//
+//            BoolExpr eq = context.MkEq(a, context.MkLe(i, j));
+//
+//            solver.Assert(eq);
+//            System.out.println(solver.Check());
+//            System.out.println(solver.Model());
+//            System.out.println(solver.toString());
 
-            BoolExpr eq = context.MkEq(a, context.MkLe(i, j));
-
-context.ParseSMTLIBString();
-
-            solver.Assert(eq);
+            Expr e = context.ParseSMTLIB2File("/Users/andreiarusoaie/work/a.smt2", null, null, null, null);
             System.out.println(solver.Check());
             System.out.println(solver.Model());
-            System.out.println(solver.toString());
 
         } catch (Z3Exception e) {
             e.printStackTrace();
