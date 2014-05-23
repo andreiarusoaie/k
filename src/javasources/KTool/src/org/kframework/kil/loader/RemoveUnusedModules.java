@@ -4,12 +4,10 @@ package org.kframework.kil.loader;
 import org.kframework.kil.*;
 import org.kframework.kil.visitors.BasicVisitor;
 import org.kframework.kil.visitors.CopyOnWriteTransformer;
-import org.kframework.kil.visitors.exceptions.TransformerException;
 
 import java.util.*;
 import java.util.Collection;
 import java.util.Set;
-
 
 public class RemoveUnusedModules extends CopyOnWriteTransformer {
 
@@ -20,7 +18,7 @@ public class RemoveUnusedModules extends CopyOnWriteTransformer {
     }
 
     @Override
-    public ASTNode visit(Definition def, Void _) throws TransformerException {
+    public ASTNode visit(Definition def, Void _)  {
         boolean change = false;
         Set<String> initialModules = new HashSet<>();
         if (autoinclude) {
@@ -68,8 +66,10 @@ public class RemoveUnusedModules extends CopyOnWriteTransformer {
             Queue<Module> mods = new LinkedList<Module>();
             for (String name : initialModules) {
                 Module mainModule = d.getModulesMap().get(name);
-                mods.add(mainModule);
-                included.put(name, mainModule);
+                if (mainModule != null) {
+                    mods.add(mainModule);
+                    included.put(name, mainModule);
+                }
             }
             //        System.out.println("push " + d.getMainModule());
             while (!mods.isEmpty()) {

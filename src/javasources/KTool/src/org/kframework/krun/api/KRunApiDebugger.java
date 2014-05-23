@@ -17,7 +17,7 @@ import org.kframework.kil.StringBuiltin;
 import org.kframework.kil.Term;
 import org.kframework.kil.loader.Context;
 import org.kframework.kil.visitors.CopyOnWriteTransformer;
-import org.kframework.kil.visitors.exceptions.TransformerException;
+import org.kframework.kil.visitors.exceptions.ParseFailedException;
 import org.kframework.krun.K;
 import org.kframework.krun.KRunExecutionException;
 import org.kframework.krun.api.Transition.TransitionType;
@@ -28,6 +28,7 @@ import edu.uci.ics.jung.graph.DirectedGraph;
 import edu.uci.ics.jung.graph.DirectedSparseGraph;
 import edu.uci.ics.jung.graph.util.Pair;
 
+import java.io.File;
 import java.util.Map.Entry;
 
 public class KRunApiDebugger implements KRunDebugger {
@@ -44,7 +45,7 @@ public class KRunApiDebugger implements KRunDebugger {
     public KRunApiDebugger(KRun krun, Term cfg, Context context) throws KRunExecutionException {
         this.context = context;
         try { 
-            org.kframework.parser.concrete.KParser.ImportTbl(K.compiled_def + "/def/Concrete.tbl");
+            org.kframework.parser.concrete.KParser.ImportTblRule(new File(K.compiled_def));
             ASTNode pattern = DefinitionLoader.parsePattern(
                     K.pattern,
                     "Command line pattern",
@@ -56,8 +57,10 @@ public class KRunApiDebugger implements KRunDebugger {
             pattern = defaultPatternInfo.compile(new Rule((Sentence) pattern), null);
 
             defaultPattern = (Rule) pattern;
-        } catch (TransformerException | CompilerStepDone e) {
+        } catch (CompilerStepDone e) {
             e.printStackTrace();
+        } catch (ParseFailedException e) {
+            e.report();
         }
 
         this.krun = krun;
@@ -259,12 +262,7 @@ public class KRunApiDebugger implements KRunDebugger {
         Term configuration = getState(currentState).getRawResult();
         AppendToStdin transformer = new AppendToStdin(s, context);
         Term result;
-        try {
-            result = (Term) transformer.visitNode(configuration);
-        } catch (TransformerException e) {
-            assert false;
-            result = null; //for static purposes
-        }
+        result = (Term) transformer.visitNode(configuration);
         if (!transformer.getSucceeded()) {
             throw new IllegalStateException("Cannot perform command: Configuration does not " + 
                 "have an stdin buffer");
@@ -306,7 +304,7 @@ public class KRunApiDebugger implements KRunDebugger {
         }
 
         @Override
-        public ASTNode visit(Cell cell, Void _) throws TransformerException {
+        public ASTNode visit(Cell cell, Void _)  {
             if ("stdin".equals(context.cells.get(cell.getLabel())
                 .getCellAttributes().get("stream"))) {
                 inStdin = true;
@@ -318,7 +316,7 @@ public class KRunApiDebugger implements KRunDebugger {
         }
 
         @Override
-        public ASTNode visit(KApp kapp, Void _) throws TransformerException {
+        public ASTNode visit(KApp kapp, Void _)  {
             if (kapp.getLabel().equals(KLabelConstant.of("#buffer", context))) {
                 inBuffer = true;
                 ASTNode result = super.visit(kapp, _);
@@ -329,7 +327,7 @@ public class KRunApiDebugger implements KRunDebugger {
         }
 
         @Override
-        public ASTNode visit(StringBuiltin s, Void _) throws TransformerException {
+        public ASTNode visit(StringBuiltin s, Void _)  {
             if (inStdin && inBuffer) {
                 succeeded = true;
                 return StringBuiltin.of(s.stringValue() + str);

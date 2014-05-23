@@ -1,4 +1,4 @@
-// Copyright (c) 2014 K Team. All Rights Reserved.
+// Copyright (c) 2012-2014 K Team. All Rights Reserved.
 package org.kframework.kil.visitors;
 
 import org.kframework.kil.ASTNode;
@@ -10,7 +10,7 @@ import org.kframework.kil.loader.Context;
  * @author dwightguth
  *
  */
-public class CopyOnWriteTransformer extends AbstractTransformer {
+public class CopyOnWriteTransformer extends AbstractTransformer<RuntimeException> {
 
     public CopyOnWriteTransformer(String name, Context context) {
         super(name, context);

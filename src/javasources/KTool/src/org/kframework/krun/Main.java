@@ -1,4 +1,4 @@
-// Copyright (c) 2012-2014 K Team. All Rights Reserved.
+// Copyright (c) 2010-2014 K Team. All Rights Reserved.
 package org.kframework.krun;
 
 import static org.apache.commons.io.FileUtils.deleteDirectory;
@@ -57,7 +57,7 @@ import org.kframework.kil.StringBuiltin;
 import org.kframework.kil.Term;
 import org.kframework.kil.loader.Context;
 import org.kframework.kil.loader.ResolveVariableAttribute;
-import org.kframework.kil.visitors.exceptions.TransformerException;
+import org.kframework.kil.visitors.exceptions.ParseFailedException;
 import org.kframework.kompile.KompileOptions;
 import org.kframework.krun.api.KRun;
 import org.kframework.krun.api.KRunDebugger;
@@ -121,12 +121,7 @@ public class Main {
     public static Term plug(Map<String, Term> args, Context context) {
         Configuration cfg = K.kompiled_cfg;
         ASTNode cfgCleanedNode = null;
-        try {
-            cfgCleanedNode = new ConfigurationCleaner(context).visitNode(cfg);
-        } catch (TransformerException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        cfgCleanedNode = new ConfigurationCleaner(context).visitNode(cfg);
         Term cfgCleaned;
         if (cfgCleanedNode == null) {
             cfgCleaned = Bag.EMPTY;
@@ -142,13 +137,9 @@ public class Main {
 
         sw.printIntermediate("Plug configuration variables");
 
-        try {
-            Term configuration = (Term) new SubstitutionFilter(args, context).visitNode(cfgCleaned);
-            configuration = (Term) new Cell2DataStructure(context).visitNode(configuration);
-            return configuration;
-        } catch (TransformerException e) {
-            throw new AssertionError("should not have thrown TransformerException", e);
-        }
+        Term configuration = (Term) new SubstitutionFilter(args, context).visitNode(cfgCleaned);
+        configuration = (Term) new Cell2DataStructure(context).visitNode(configuration);
+        return configuration;
     }
 
     public static Term makeConfiguration(Term kast, String stdin,
@@ -174,11 +165,7 @@ public class Main {
                     parser = "kast --parser ground -e";
                 }
                 parsed = rp.runParserOrDie(parser, value, false, startSymbol, context);
-                try {
-                    parsed = (Term) new ResolveVariableAttribute(context).visitNode(parsed);
-                } catch (TransformerException e) {
-                    throw new AssertionError("should not have thrown TransformerException", e);
-                }
+                parsed = (Term) new ResolveVariableAttribute(context).visitNode(parsed);
                 output.put("$" + name, parsed);
                 hasPGM = hasPGM || name.equals("$PGM");
             }
@@ -265,7 +252,7 @@ public class Main {
             try {
                 if (cmd.hasOption("pattern") || "search".equals(K.maude_cmd)) {
                     org.kframework.parser.concrete.KParser
-                            .ImportTbl(K.compiled_def + "/def/Concrete.tbl");
+                            .ImportTblRule(new File(K.compiled_def));
                     ASTNode pattern = DefinitionLoader.parsePattern(
                             K.pattern,
                             "Command line pattern",
@@ -408,7 +395,7 @@ public class Main {
             } catch (KRunExecutionException e) {
                 rp.printError(e.getMessage(), lang, context);
                 return false;
-            } catch (TransformerException e) {
+            } catch (ParseFailedException e) {
                 e.report();
             } catch (UnsupportedBackendOptionException e) {
                 org.kframework.utils.Error.report("Backend \"" + K.backend + "\" does not support option " + e.getMessage());
@@ -860,7 +847,7 @@ public class Main {
         try {
             KRun krun = obtainKRun(context);
             krun.setBackendOption("io", false);
-            RunKRunCommand cmd = new RunKRunCommand(kast, lang, context);
+            RunKRunCommand cmd = new RunKRunCommand(kast, lang,krun, context);
             MainWindow window = new MainWindow(cmd);
             synchronized(window.lock) {
                 while (true) {
@@ -884,7 +871,7 @@ public class Main {
      * it will be used for simulation tool
      */
     public static org.kframework.kil.Term preDefineSimulation(CommandlineOptions cmd_options,
-            CommandLine cmd,Context context,String directory,String pgm) throws IOException, KRunExecutionException, TransformerException{
+            CommandLine cmd,Context context,String directory,String pgm) throws IOException, KRunExecutionException {
         
         K.directory=new File(directory).getCanonicalPath();
         K.pgm = pgm;
@@ -950,11 +937,7 @@ public class Main {
             // This is essential for generating maude
             javaDef = new FlattenModules(context).compile(javaDef, null);
 
-            try {
-                javaDef = (Definition) new AddTopCellConfig(context).visitNode(javaDef);
-            } catch (TransformerException e) {
-                e.report();
-            }
+            javaDef = (Definition) new AddTopCellConfig(context).visitNode(javaDef);
 
             javaDef.preprocess(context);
 
@@ -1208,6 +1191,7 @@ public class Main {
             }
             if (cmd.hasOption("ltlmc")) {
                 K.model_checking = cmd.getOptionValue("ltlmc");
+                K.io = false;
             }
             if (cmd.hasOption("prove")) {
                 K.prove = cmd.getOptionValue("prove");
@@ -1282,9 +1266,6 @@ public class Main {
                     rightInitTerm = Main.preDefineSimulation(cmd_options, cmd,
                             contextRight, K.simulationDefinitionRight, K.simulationProgRight);
                 } catch (KRunExecutionException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                } catch (TransformerException e) {
                     // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
@@ -1423,12 +1404,7 @@ public class Main {
 
                 sw.printIntermediate("Flattening modules");
 
-                try {
-                    javaDef = (Definition) new AddTopCellConfig(context).visitNode(javaDef);
-                } catch (TransformerException e) {
-                    e.report();
-                }
-
+                javaDef = (Definition) new AddTopCellConfig(context).visitNode(javaDef);
                 sw.printIntermediate("Adding top cell to configuration");
 
                 javaDef.preprocess(context);
@@ -1465,7 +1441,7 @@ public class Main {
             if (K.term) {
                 if (K.parser.equals("kast") && !cmd.hasOption("parser")) {
                     if (K.backend.equals("java")) {
-                        K.parser = "kast --parser rule";
+                        K.parser = "kast --parser rules";
                     } else {
                         K.parser = "kast --parser ground";
                     }

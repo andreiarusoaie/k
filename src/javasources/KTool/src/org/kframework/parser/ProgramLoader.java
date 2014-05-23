@@ -1,7 +1,6 @@
-// Copyright (c) 2014 K Team. All Rights Reserved.
+// Copyright (c) 2012-2014 K Team. All Rights Reserved.
 package org.kframework.parser;
 
-import java.io.File;
 import java.io.IOException;
 
 import org.kframework.compile.transformers.AddEmptyLists;
@@ -18,7 +17,7 @@ import org.kframework.kil.Term;
 import org.kframework.kil.loader.Context;
 import org.kframework.kil.loader.JavaClassesFactory;
 import org.kframework.kil.loader.ResolveVariableAttribute;
-import org.kframework.kil.visitors.exceptions.TransformerException;
+import org.kframework.kil.visitors.exceptions.ParseFailedException;
 import org.kframework.parser.concrete.disambiguate.AmbFilter;
 import org.kframework.parser.concrete.disambiguate.CorrectConstantsTransformer;
 import org.kframework.parser.concrete.disambiguate.PreferAvoidFilter;
@@ -33,7 +32,6 @@ import org.kframework.utils.XmlLoader;
 import org.kframework.utils.errorsystem.KException;
 import org.kframework.utils.errorsystem.KException.ExceptionType;
 import org.kframework.utils.errorsystem.KException.KExceptionGroup;
-import org.kframework.utils.file.FileUtil;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
@@ -42,25 +40,20 @@ public class ProgramLoader {
     /**
      * Load program file to ASTNode.
      * 
-     * Write pgm.xml cache in given dotk folder.
-     * 
      * @param kappize
      *            If true, then apply KAppModifier to AST.
      */
     public static ASTNode loadPgmAst(String content, String filename, Boolean kappize, String startSymbol, Context context) throws IOException,
-            TransformerException {
-        File tbl = new File(context.kompiled.getCanonicalPath() + "/pgm/Program.tbl");
-
+            ParseFailedException {
         // ------------------------------------- import files in Stratego
         ASTNode out;
 
-        org.kframework.parser.concrete.KParser.ImportTblPgm(tbl.getAbsolutePath());
+        org.kframework.parser.concrete.KParser.ImportTblPgm(context.kompiled);
         String parsed = org.kframework.parser.concrete.KParser.ParseProgramString(content, startSymbol);
         Document doc = XmlLoader.getXMLDoc(parsed);
 
         XmlLoader.addFilename(doc.getFirstChild(), filename);
         XmlLoader.reportErrors(doc);
-        FileUtil.save(context.kompiled.getAbsolutePath() + "/pgm.xml", parsed);
         JavaClassesFactory.startConstruction(context);
         out = JavaClassesFactory.getTerm((Element) doc.getDocumentElement().getFirstChild().getNextSibling());
         JavaClassesFactory.endConstruction();
@@ -77,7 +70,7 @@ public class ProgramLoader {
         return out;
     }
 
-    public static ASTNode loadPgmAst(String content, String filename, String startSymbol, Context context) throws IOException, TransformerException {
+    public static ASTNode loadPgmAst(String content, String filename, String startSymbol, Context context) throws IOException, ParseFailedException {
         return loadPgmAst(content, filename, true, startSymbol, context);
     }
 
@@ -87,24 +80,24 @@ public class ProgramLoader {
      * Save it in kompiled cache under pgm.maude.
      */
     public static Term processPgm(String content, String filename, Definition def, String startSymbol,
-            Context context, ParserType whatParser) throws TransformerException {
+            Context context, ParserType whatParser) throws ParseFailedException {
         Stopwatch.instance().printIntermediate("Importing Files");
         if (!context.definedSorts.contains(startSymbol)) {
-            throw new TransformerException(new KException(ExceptionType.ERROR, KExceptionGroup.CRITICAL, 
+            throw new ParseFailedException(new KException(ExceptionType.ERROR, KExceptionGroup.CRITICAL, 
                     "The start symbol must be declared in the definition. Found: " + startSymbol));
         }
 
         try {
             ASTNode out;
             if (whatParser == ParserType.GROUND) {
-                org.kframework.parser.concrete.KParser.ImportTblGround(context.kompiled.getCanonicalPath() + "/ground/Concrete.tbl");
+                org.kframework.parser.concrete.KParser.ImportTblGround(context.kompiled);
                 out = DefinitionLoader.parseCmdString(content, filename, startSymbol, context);
                 out = new RemoveBrackets(context).visitNode(out);
                 out = new AddEmptyLists(context).visitNode(out);
                 out = new RemoveSyntacticCasts(context).visitNode(out);
                 out = new FlattenTerms(context).visitNode(out);
             } else if (whatParser == ParserType.RULES) {
-                org.kframework.parser.concrete.KParser.ImportTbl(context.kompiled.getCanonicalPath() + "/def/Concrete.tbl");
+                org.kframework.parser.concrete.KParser.ImportTblRule(context.kompiled);
                 out = DefinitionLoader.parsePattern(content, filename, startSymbol, context);
                 out = new RemoveBrackets(context).visitNode(out);
                 out = new AddEmptyLists(context).visitNode(out);
@@ -133,7 +126,7 @@ public class ProgramLoader {
                     out = new TreeCleanerVisitor(context).visitNode(out);
                     if (context.globalOptions.debug)
                         System.out.println("Clean: " + out + "\n");
-                } catch (TransformerException te) {
+                } catch (ParseFailedException te) {
                     ParseError perror = parser.getErrors();
 
                     String msg = content.length() == perror.position ?
@@ -141,7 +134,7 @@ public class ProgramLoader {
                         "Parse error: unexpected character '" + content.charAt(perror.position) + "'.";
                     String loc = "(" + perror.line + "," + perror.column + "," +
                             perror.line + "," + (perror.column + 1) + ")";
-                    throw new TransformerException(new KException(
+                    throw new ParseFailedException(new KException(
                             ExceptionType.ERROR, KExceptionGroup.INNER_PARSER, msg, filename, loc));
                 }
                 out = new PriorityFilter(context).visitNode(out);
@@ -156,7 +149,7 @@ public class ProgramLoader {
             return (Term) out;
         } catch (IOException e) {
             String msg = "Cannot parse program: " + e.getLocalizedMessage();
-            throw new TransformerException(new KException(ExceptionType.ERROR, KExceptionGroup.CRITICAL, msg, filename, "File system."));
+            throw new ParseFailedException(new KException(ExceptionType.ERROR, KExceptionGroup.CRITICAL, msg, filename, "File system."));
         }
     }
 }
