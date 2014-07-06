@@ -20,6 +20,7 @@ import org.kframework.utils.Stopwatch;
 import java.util.*;
 import java.util.List;
 import java.util.Map;
+import java.io.File;
 
 /**
  * Created by andreiarusoaie on 03/05/14.
@@ -41,7 +42,6 @@ public class SymbolicKRun extends MaudeKRun {
     public KRunResult<KRunState> run(Term cfg) throws KRunExecutionException {
 
         while (true) {
-            // (missing) step: filter (feasible) path conditions
             List<SearchResult> solutions = stepAll(cfg);
 
             // step: exit when the solutions list is empty
@@ -54,16 +54,14 @@ public class SymbolicKRun extends MaudeKRun {
         }
     }
 
+    // TODO: finish this
     @Override
     public KRunResult<SearchResults> search(Integer bound, Integer depth, SearchType searchType, Rule pattern, Term cfg, RuleCompilerSteps compilationInfo) throws KRunExecutionException {
 
         int stateCounter = 0;
         DirectedGraph<KRunState, Transition> graph = new DirectedSparseGraph<>();
 
-
-
-
-
+        return null;
     }
 
     private List<SearchResult> stepAll(Term cfg) throws KRunExecutionException {
@@ -87,7 +85,8 @@ public class SymbolicKRun extends MaudeKRun {
 
     private void initialiseSearchParams() {
         try {
-            org.kframework.parser.concrete.KParser.ImportTbl(K.compiled_def + "/def/Concrete.tbl");
+            org.kframework.parser.concrete.KParser.ImportTblRule(new File(K.compiled_def));
+//            org.kframework.parser.concrete.KParser.ImportTbl(K.compiled_def + "/def/Concrete.tbl");
             ASTNode pattern = DefinitionLoader.parsePattern(
                     symbolicPattern,
                     "Default symbolic pattern",
