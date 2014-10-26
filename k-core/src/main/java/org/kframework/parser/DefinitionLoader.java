@@ -26,7 +26,8 @@ import org.kframework.kil.loader.CollectModuleImportsVisitor;
 import org.kframework.kil.loader.Context;
 import org.kframework.kil.loader.JavaClassesFactory;
 import org.kframework.kil.loader.RemoveUnusedModules;
-import org.kframework.kil.visitors.exceptions.ParseFailedException;
+import org.kframework.utils.errorsystem.ParseFailedException;
+import org.kframework.parser.concrete2.Grammar;
 import org.kframework.parser.outer.Outer;
 import org.kframework.parser.concrete.disambiguate.AmbDuplicateFilter;
 import org.kframework.parser.concrete.disambiguate.AmbFilter;
@@ -189,6 +190,10 @@ public class DefinitionLoader {
                 String oldSdfPgm = "";
                 if (files.resolveKompiled("Program.sdf").exists())
                     oldSdfPgm = files.loadFromKompiled("Program.sdf");
+
+                // save the new parser info
+                Grammar newParserGrammar = ProgramSDF.getNewParserForPrograms(def, context);
+                loader.saveOrDie(files.resolveKompiled("newParser.bin"), newParserGrammar);
 
                 StringBuilder newSdfPgmBuilder = ProgramSDF.getSdfForPrograms(def, context);
 
@@ -373,12 +378,8 @@ public class DefinitionLoader {
         config = new PriorityFilter(context).visitNode(config);
         config = new PreferDotsFilter(context).visitNode(config);
         config = new VariableTypeInferenceFilter(context).visitNode(config);
-        try {
-            config = new TypeSystemFilter(context).visitNode(config);
-            config = new TypeInferenceSupremumFilter(context).visitNode(config);
-        } catch (ParseFailedException e) {
-            e.report();
-        }
+        config = new TypeSystemFilter(context).visitNode(config);
+        config = new TypeInferenceSupremumFilter(context).visitNode(config);
         // config = new AmbDuplicateFilter(context).visitNode(config);
         // config = new TypeSystemFilter(context).visitNode(config);
         // config = new BestFitFilter(new GetFitnessUnitTypeCheckVisitor(context), context).visitNode(config);
@@ -423,12 +424,8 @@ public class DefinitionLoader {
         config = new PriorityFilter(context).visitNode(config);
         config = new PreferDotsFilter(context).visitNode(config);
         config = new VariableTypeInferenceFilter(context).visitNode(config);
-        try {
-            config = new TypeSystemFilter(context).visitNode(config);
-            config = new TypeInferenceSupremumFilter(context).visitNode(config);
-        } catch (ParseFailedException e) {
-            e.report();
-        }
+        config = new TypeSystemFilter(context).visitNode(config);
+        config = new TypeInferenceSupremumFilter(context).visitNode(config);
         // config = new AmbDuplicateFilter(context).visitNode(config);
         // config = new TypeSystemFilter(context).visitNode(config);
         // config = new BestFitFilter(new GetFitnessUnitTypeCheckVisitor(context), context).visitNode(config);
