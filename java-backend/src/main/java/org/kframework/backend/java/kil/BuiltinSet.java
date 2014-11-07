@@ -8,8 +8,7 @@ import org.kframework.backend.java.symbolic.Visitor;
 import org.kframework.backend.java.util.Utils;
 import org.kframework.kil.ASTNode;
 import org.kframework.kil.DataStructureSort;
-import org.kframework.utils.general.GlobalSettings;
-
+import org.kframework.utils.errorsystem.KExceptionManager;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -51,6 +50,20 @@ public class BuiltinSet extends AssociativeCommutativeCollection {
         Builder builder = new Builder();
         builder.concatenate(sets);
         return builder.build();
+    }
+
+    /**
+     * TODO(YilongL): implement it properly!
+     */
+    public boolean isUnifiableByCurrentAlgorithm() {
+        return true;
+    }
+
+    public static boolean isSetUnifiableByCurrentAlgorithm(Term term, Term otherTerm) {
+        return term instanceof BuiltinSet
+                && ((BuiltinSet) term).isUnifiableByCurrentAlgorithm()
+                && otherTerm instanceof BuiltinSet
+                && ((BuiltinSet) term).isUnifiableByCurrentAlgorithm();
     }
 
     public boolean contains(Term element) {
@@ -200,7 +213,7 @@ public class BuiltinSet extends AssociativeCommutativeCollection {
         public void concatenate(Term... terms) {
             for (Term term : terms) {
                 if (!term.sort().equals(Sort.SET)) {
-                    GlobalSettings.kem.registerCriticalError("unexpected sort "
+                    throw KExceptionManager.criticalError("unexpected sort "
                             + term.sort() + " of concatenated term " + term
                             + "; expected " + Sort.SET);
                 }
@@ -220,7 +233,7 @@ public class BuiltinSet extends AssociativeCommutativeCollection {
                 } else if (term instanceof Variable) {
                     variablesBuilder.add((Variable) term);
                 } else {
-                    GlobalSettings.kem.registerCriticalError("unexpected concatenated term" + term);
+                    throw KExceptionManager.criticalError("unexpected concatenated term" + term);
                 }
             }
         }

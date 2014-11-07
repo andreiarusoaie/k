@@ -8,13 +8,14 @@ import org.kframework.backend.java.symbolic.Visitor;
 import org.kframework.backend.java.util.Utils;
 import org.kframework.kil.ASTNode;
 import org.kframework.kil.DataStructureSort;
-import org.kframework.utils.general.GlobalSettings;
+import org.kframework.utils.errorsystem.KExceptionManager;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.map.UnmodifiableMap;
 
@@ -227,13 +228,19 @@ public class BuiltinMap extends AssociativeCommutativeCollection {
 
         private void concatenate(Term term) {
             if (!term.sort().equals(Sort.MAP)) {
-                GlobalSettings.kem.registerCriticalError("unexpected sort "
+                throw KExceptionManager.criticalError("unexpected sort "
                         + term.sort() + " of concatenated term " + term
                         + "; expected " + Sort.MAP);
             }
 
             if (term instanceof BuiltinMap) {
                 BuiltinMap map = (BuiltinMap) term;
+
+                if (entries.keySet().stream().anyMatch(key -> map.entries.containsKey(key))) {
+                    throw KExceptionManager.criticalError("failed to concatenate maps with common keys: "
+                            + entries.keySet().stream().filter(map.entries::containsKey).collect(Collectors.toList()));
+                }
+
                 entries.putAll(map.entries);
                 patternsBuilder.addAll(map.collectionPatterns);
                 functionsBuilder.addAll(map.collectionFunctions);
@@ -247,7 +254,7 @@ public class BuiltinMap extends AssociativeCommutativeCollection {
             } else if (term instanceof Variable) {
                 variablesBuilder.add((Variable) term);
             } else {
-                GlobalSettings.kem.registerCriticalError("unexpected concatenated term" + term);
+                throw KExceptionManager.criticalError("unexpected concatenated term" + term);
             }
         }
 
