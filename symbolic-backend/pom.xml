@@ -18,7 +18,7 @@
     <dependencies>
         <dependency>
             <groupId>org.kframework.k</groupId>
-            <artifactId>k-core</artifactId>
+            <artifactId>kernel</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -28,7 +28,7 @@
         </dependency>
         <dependency>
             <groupId>org.kframework.k</groupId>
-            <artifactId>k-core</artifactId>
+            <artifactId>kernel</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>

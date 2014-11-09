@@ -31,7 +31,7 @@ public class ConstantsReplaceTransformer extends CopyOnWriteTransformer {
 
         if (node.getLabel() instanceof Token) {
 //            Token token = ((Token) node.getLabel());
-            Variable newVar = Variable.getFreshVar(Sort.K);
+            Variable newVar = Variable.getAnonVar(Sort.K);
             generatedSV.put(newVar, node);
             return newVar;
         }

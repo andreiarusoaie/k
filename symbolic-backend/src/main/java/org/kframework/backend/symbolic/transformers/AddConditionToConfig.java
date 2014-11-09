@@ -24,7 +24,7 @@ import org.kframework.kil.Terminal;
 import org.kframework.kil.Variable;
 import org.kframework.kil.loader.Context;
 import org.kframework.kil.visitors.CopyOnWriteTransformer;
-import org.kframework.utils.general.GlobalSettings;
+import org.kframework.utils.errorsystem.KExceptionManager;
 
 /**
  * Add cell which holds the path condition to the configuration. The path
@@ -37,9 +37,12 @@ public class AddConditionToConfig extends CopyOnWriteTransformer {
     public static String KCELL = "k";
     public static boolean PC = true;
     public static String PC_VAR = "$PC";
+    private KExceptionManager kem;
 
-    public AddConditionToConfig(Context context) {
+
+    public AddConditionToConfig(Context context, KExceptionManager kem) {
         super("Add path condition to configuration", context);
+        this.kem = kem;
     }
 
     @Override
@@ -150,14 +153,13 @@ public class AddConditionToConfig extends CopyOnWriteTransformer {
         if (result == node)
             return node;
         if (result == null) {
-            GlobalSettings.kem.registerCompilerError(
-                            "Expecting Module, but got null. Returning the untransformed module.",
-                            this, node);
+            kem.registerCriticalWarning(
+                            "Expecting Module, but got null. Returning the untransformed module.", node);
             return node;
         }
         if (!(result instanceof Module)) {
-            GlobalSettings.kem.registerInternalError("Expecting Module, but got "
-                    + result.getClass() + " while transforming.", this, node);
+            kem.registerCriticalWarning("Expecting Module, but got "
+                    + result.getClass() + " while transforming.", node);
             return node;
         }
         node = (Module) result;

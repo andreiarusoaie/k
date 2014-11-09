@@ -6,8 +6,8 @@ import org.kframework.backend.BasicBackend;
 import org.kframework.backend.FirstStep;
 import org.kframework.backend.LastStep;
 import org.kframework.backend.maude.KompileBackend;
-import org.kframework.backend.maude.MaudeBackend;
 import org.kframework.backend.maude.MaudeBuiltinsFilter;
+import org.kframework.backend.maude.MaudeFilter;
 import org.kframework.backend.symbolic.transformers.*;
 import org.kframework.compile.FlattenModules;
 import org.kframework.compile.ResolveConfigurationAbstraction;
@@ -15,6 +15,8 @@ import org.kframework.compile.checks.CheckConfigurationCells;
 import org.kframework.compile.checks.CheckRewrite;
 import org.kframework.compile.checks.CheckVariables;
 import org.kframework.compile.sharing.DeclareCellLabels;
+import org.kframework.compile.sharing.FreshVariableNormalizer;
+import org.kframework.compile.sharing.SortRulesNormalizer;
 import org.kframework.compile.tags.AddDefaultComputational;
 import org.kframework.compile.tags.AddOptionalTags;
 import org.kframework.compile.tags.AddStrictStar;
@@ -26,6 +28,8 @@ import org.kframework.compile.utils.InitializeConfigurationStructure;
 import org.kframework.kil.Definition;
 import org.kframework.kil.loader.Context;
 import org.kframework.utils.Stopwatch;
+import org.kframework.utils.StringBuilderUtil;
+import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
 import org.kframework.utils.file.JarInfo;
 
@@ -41,10 +45,14 @@ public class SymbolicKompileBackend extends BasicBackend {
     public static final String SYMBOLIC = "symbolic-kompile";
     public static final String NOTSYMBOLIC = "not-symbolic-kompile";
 
+    public static KExceptionManager kem;
+    private final FileUtil files;
 
     @Inject
-    SymbolicKompileBackend(Stopwatch sw, Context context) {
+    SymbolicKompileBackend(Stopwatch sw, Context context, FileUtil files, KExceptionManager kem) {
         super(sw, context);
+        this.kem = kem;
+        this.files = files;
     }
 
     @Override
@@ -57,14 +65,15 @@ public class SymbolicKompileBackend extends BasicBackend {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        MaudeBuiltinsFilter builtinsFilter = new MaudeBuiltinsFilter(maudeHooks, specialMaudeHooks, context);
+        MaudeBuiltinsFilter builtinsFilter = new MaudeBuiltinsFilter(maudeHooks, specialMaudeHooks, context, kem);
         builtinsFilter.visitNode(javaDef);
         final String mainModule = javaDef.getMainModule();
         StringBuilder builtins = new StringBuilder()
                 .append("mod ").append(mainModule).append("-BUILTINS is\n").append(" including ")
                 .append(mainModule).append("-BASE .\n")
                 .append(builtinsFilter.getResult()).append("endm\n");
-        FileUtil.save(context.kompiled.getAbsolutePath() + "/builtins.maude", builtins);
+
+        files.saveToKompiled("builtins.maude", builtins.toString());
         sw.printIntermediate("Generating equations for hooks");
         javaDef = (Definition) new DeleteFunctionRules(maudeHooks.stringPropertyNames(), context)
                 .visitNode(javaDef);
@@ -73,14 +82,19 @@ public class SymbolicKompileBackend extends BasicBackend {
 
     @Override
     public void run(Definition javaDef) {
-        MaudeBackend maude = new MaudeBackend(sw, context);
-        maude.run(javaDef);
+        javaDef = (Definition) new FreshVariableNormalizer(context).visitNode(javaDef);
+        javaDef = (Definition) new SortRulesNormalizer(context).visitNode(javaDef);
+        MaudeFilter maudeFilter = new MaudeFilter(context, kem);
+        maudeFilter.visitNode(javaDef);
+
+        final String mainModule1 = javaDef.getMainModule();
+        StringBuilder maudified = maudeFilter.getResult();
+        StringBuilderUtil.replaceFirst(maudified, mainModule1, mainModule1 + "-BASE");
+
+        files.saveToKompiled("base.maude", maudified.toString());
+        sw.printIntermediate("Generating Maude file");
 
         String load = "load \"" + JarInfo.getKBase(true) + JarInfo.MAUDE_LIB_DIR + "/k-prelude\"\n";
-
-        // load libraries if any
-        String maudeLib = "".equals(options.experimental.lib) ? "" : "load " + JarInfo.windowfyPath(new File(options.experimental.lib).getAbsolutePath()) + "\n";
-        load += maudeLib;
 
         final String mainModule = javaDef.getMainModule();
         //String defFile = javaDef.getMainFile().replaceFirst("\\.[a-zA-Z]+$", "");
@@ -90,7 +104,7 @@ public class SymbolicKompileBackend extends BasicBackend {
                 .append("  including ").append(mainModule).append("-BASE .\n")
                 .append("  including ").append(mainModule).append("-BUILTINS .\n")
                 .append("eq mainModule = '").append(mainModule).append(" .\nendm\n");
-        FileUtil.save(context.kompiled.getAbsolutePath() + "/" + "main.maude", main);
+        files.saveToKompiled("main.maude", main.toString());
     }
 
     @Override
@@ -115,12 +129,12 @@ public class SymbolicKompileBackend extends BasicBackend {
         steps.add(new CheckVisitorStep<Definition>(new CheckConfigurationCells(context), context));
         steps.add(new RemoveBrackets(context));
         steps.add(new SetVariablesInferredSort(context));
-        steps.add(new AddEmptyLists(context));
+        steps.add(new AddEmptyLists(context, kem));
         steps.add(new RemoveSyntacticCasts(context));
 //        steps.add(new EnforceInferredSorts(context));
-        steps.add(new CheckVisitorStep<Definition>(new CheckVariables(context), context));
+        steps.add(new CheckVisitorStep<Definition>(new CheckVariables(context, kem), context));
         steps.add(new CheckVisitorStep<Definition>(new CheckRewrite(context), context));
-        steps.add(new FlattenModules(context));
+        steps.add(new FlattenModules(context, kem));
         steps.add(new StrictnessToContexts(context));
         steps.add(new FreezeUserFreezers(context));
         steps.add(new ContextsToHeating(context));
@@ -138,7 +152,7 @@ public class SymbolicKompileBackend extends BasicBackend {
         steps.add(new ResolveFreshVarMOS(context));
         steps.add(new AddTopCellConfig(context));
         steps.add(new AddTopCellRules(context)); // required by symbolic
-        steps.add(new AddConditionToConfig(context)); // symbolic step
+        steps.add(new AddConditionToConfig(context, kem)); // symbolic step
         steps.add(new ResolveBinder(context));
         steps.add(new ResolveAnonymousVariables(context));
         steps.add(new AddK2SMTLib(context));
@@ -147,15 +161,15 @@ public class SymbolicKompileBackend extends BasicBackend {
         steps.add(new ResolveBuiltins(context));
         steps.add(new ResolveListOfK(context));
         steps.add(new FlattenSyntax(context));
-        steps.add(new ResolveBlockingInput(context));
+        steps.add(new ResolveBlockingInput(context, kem));
         steps.add(new InitializeConfigurationStructure(context));
         steps.add(new AddKStringConversion(context));
         steps.add(new AddKLabelConstant(context));
         steps.add(new ResolveHybrid(context));
-        steps.add(new ResolveConfigurationAbstraction(context));
+        steps.add(new ResolveConfigurationAbstraction(context, kem));
         steps.add(new ResolveOpenCells(context));
         steps.add(new ResolveRewrite(context));
-        steps.add(new CompileDataStructures(context));
+        steps.add(new CompileDataStructures(context, kem));
         steps.add(new Cell2DataStructure(context));
         steps.add(new ReplaceConstants(context)); // symbolic step
         steps.add(new AddPathCondition(context)); // symbolic step
