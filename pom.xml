@@ -17,6 +17,7 @@
     <module>ocaml-backend</module>
     <module>sdf-parser</module>
     <module>tiny</module>
+    <module>abstract-backend</module>
   </modules>
 
   <scm>
