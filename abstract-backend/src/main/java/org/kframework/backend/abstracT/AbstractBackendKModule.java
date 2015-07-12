@@ -1,5 +1,8 @@
 package org.kframework.backend.abstracT;
 
+import com.google.common.collect.ImmutableList;
+import org.kframework.backend.java.symbolic.JavaBackendKModule;
+import org.kframework.backend.java.symbolic.JavaSymbolicKompileModule;
 import org.kframework.main.KModule;
 
 import java.util.List;
@@ -9,7 +12,7 @@ import com.google.inject.Module;
 /**
  * Created by Andrei on 7/12/2015.
  */
-public class AbstractBackendModule implements KModule {
+public class AbstractBackendKModule implements KModule {
     @Override
     public List<Module> getKDocModules() {
         return null;
@@ -17,26 +20,26 @@ public class AbstractBackendModule implements KModule {
 
     @Override
     public List<Module> getKompileModules() {
-        return null;
+        return ImmutableList.<Module>of(new AbstractBackendKompileModule());
     }
 
     @Override
     public List<Module> getKastModules() {
-        return null;
+        return ImmutableList.of();
     }
 
     @Override
     public List<Module> getDefinitionSpecificKRunModules() {
-        return null;
+        return ImmutableList.of();
     }
 
     @Override
     public List<Module> getKTestModules() {
-        return null;
+        return ImmutableList.of();
     }
 
     @Override
     public List<Module> getKRunModules(List<Module> definitionSpecificModules) {
-        return null;
+        return ImmutableList.of();
     }
 }
