@@ -2,6 +2,7 @@ package org.kframework.backend.abstracT;
 
 
 import com.google.inject.Inject;
+import org.kframework.backend.Backends;
 import org.kframework.kil.Definition;
 import org.kframework.kil.loader.Context;
 import org.kframework.kompile.KompileOptions;
@@ -30,6 +31,12 @@ public class AbstractBackend extends BasicBackend {
 
     @Override
     public boolean generatesDefinition() {
-        return false;
+        return true;
     }
+
+    @Override
+    public String autoincludedFile() {
+        return Backends.AUTOINCLUDE_JAVA;
+    }
+
 }
