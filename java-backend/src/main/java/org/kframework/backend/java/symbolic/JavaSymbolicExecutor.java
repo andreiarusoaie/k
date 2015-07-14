@@ -45,7 +45,7 @@ public class JavaSymbolicExecutor implements Executor {
     private final Stopwatch sw;
 
     @Inject
-    JavaSymbolicExecutor(
+    protected JavaSymbolicExecutor(
             Context context,
             JavaExecutionOptions javaOptions,
             KILtoBackendJavaKILTransformer kilTransformer,

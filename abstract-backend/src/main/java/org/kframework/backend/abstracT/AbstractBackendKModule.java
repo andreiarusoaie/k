@@ -30,7 +30,7 @@ public class AbstractBackendKModule implements KModule {
 
     @Override
     public List<Module> getDefinitionSpecificKRunModules() {
-        return ImmutableList.of();
+        return ImmutableList.of(new AbstractDefinitionModule());
     }
 
     @Override
@@ -40,6 +40,6 @@ public class AbstractBackendKModule implements KModule {
 
     @Override
     public List<Module> getKRunModules(List<Module> definitionSpecificModules) {
-        return ImmutableList.of();
+        return ImmutableList.of(new AbstractKRunModule());
     }
 }
