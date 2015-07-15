@@ -128,7 +128,7 @@ public class JavaSymbolicExecutor implements Executor {
      * @param computeGraph Option to compute Execution Graph,
      * @return The execution relation.
      */
-    private RewriteRelation javaRewriteEngineRun(org.kframework.kil.Term cfg, int bound, boolean computeGraph) {
+    protected RewriteRelation javaRewriteEngineRun(org.kframework.kil.Term cfg, int bound, boolean computeGraph) {
         Term term = getJavaKilTerm(cfg);
         TermContext termContext = getTermContext(term);
         if (!javaOptions.symbolicExecution) {
