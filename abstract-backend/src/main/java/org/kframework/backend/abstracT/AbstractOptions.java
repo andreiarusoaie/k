@@ -8,7 +8,7 @@ import org.kframework.utils.inject.RequestScoped;
  */
 @RequestScoped
 public final class AbstractOptions {
-    @Parameter(names="--verify", description="Perform verification of the RL formulas from the file given as argument")
-    public String RLFileName = null;
+    @Parameter(names="--abstract-graph", description="Build the abstract graph using the specification file given as argument", required=true)
+    public String abstractGraph = null;
 
 }
