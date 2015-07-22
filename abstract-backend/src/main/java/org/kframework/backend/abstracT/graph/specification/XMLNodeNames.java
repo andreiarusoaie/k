@@ -1,4 +1,4 @@
-package org.kframework.backend.abstracT.xml.graph;
+package org.kframework.backend.abstracT.graph.specification;
 
 /**
  * Created by andrei on 16/07/15.

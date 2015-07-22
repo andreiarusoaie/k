@@ -1,4 +1,4 @@
-package org.kframework.backend.abstracT.xml.graph;
+package org.kframework.backend.abstracT.graph.specification;
 
 import com.google.inject.Provider;
 import org.apache.commons.io.FileUtils;

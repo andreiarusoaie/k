@@ -1,4 +1,4 @@
-package org.kframework.backend.abstracT.xml.graph;
+package org.kframework.backend.abstracT.graph.specification;
 
 import org.apache.commons.collections15.OrderedMap;
 import org.apache.commons.math3.util.Pair;

@@ -1,8 +1,6 @@
-package org.kframework.backend.abstracT;
+package org.kframework.backend.abstracT.backend;
 
 import com.google.common.collect.ImmutableList;
-import org.kframework.backend.java.symbolic.JavaBackendKModule;
-import org.kframework.backend.java.symbolic.JavaSymbolicKompileModule;
 import org.kframework.main.KModule;
 
 import java.util.List;

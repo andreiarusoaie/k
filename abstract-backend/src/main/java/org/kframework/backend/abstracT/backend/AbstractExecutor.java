@@ -1,4 +1,4 @@
-package org.kframework.backend.abstracT;
+package org.kframework.backend.abstracT.backend;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -6,9 +6,9 @@ import org.kframework.backend.abstracT.graph.AbstractGraph;
 import org.kframework.backend.abstracT.graph.AbstractGraphEdge;
 import org.kframework.backend.abstracT.graph.AbstractGraphNode;
 import org.kframework.backend.abstracT.graph.EdgeType;
-import org.kframework.backend.abstracT.rewrite.engine.AbstractRewriter;
-import org.kframework.backend.abstracT.xml.graph.AbstractGraphNodeSpecification;
-import org.kframework.backend.abstracT.xml.graph.AbstractGraphSpecification;
+import org.kframework.backend.abstracT.rewriter.AbstractRewriter;
+import org.kframework.backend.abstracT.graph.specification.AbstractGraphNodeSpecification;
+import org.kframework.backend.abstracT.graph.specification.AbstractGraphSpecification;
 import org.kframework.backend.java.kil.ConstrainedTerm;
 import org.kframework.backend.java.kil.Definition;
 import org.kframework.backend.java.kil.GlobalContext;
@@ -61,14 +61,6 @@ public class AbstractExecutor extends JavaSymbolicExecutor {
         this.programLoader = programLoader;
     }
 
-
-    @Override
-    public RewriteRelation run(org.kframework.kil.Term cfg, boolean computeGraph) throws KRunExecutionException {
-        AbstractGraphSpecification abstractGraph = new AbstractGraphSpecification(abstractOptions.abstractGraph, programLoader, getContext());
-        RewriteRelation temp = javaRewriteEngineRun((Term) cfg, 152, true);
-        return temp;
-    }
-
     @Override
     public SearchResults search(Integer bound, Integer depth, SearchType searchType, Rule pattern, Term cfg, RuleCompilerSteps compilationInfo, boolean computeGraph) throws KRunExecutionException {
         AbstractGraphSpecification abstractGraphSpecification = new AbstractGraphSpecification(abstractOptions.abstractGraph, programLoader, getContext());
@@ -110,6 +102,15 @@ public class AbstractExecutor extends JavaSymbolicExecutor {
         return new AbstractMap.SimpleEntry<ConstrainedTerm, ConstrainedTerm>(lhs, rhs);
     }
 
+    /**
+     * Given a set of goals G and a "main" formula in G the method
+     * builds the abstract graph for this formula
+     * @param main  the "main" RL formula
+     * @param G the set of goals (including the main formula)
+     * @param pattern the rule pattern required by the rewriter
+     * @return the abstract graph for main RL formula
+     * @throws KRunExecutionException
+     */
     private AbstractGraph getGraph(
             Map.Entry<ConstrainedTerm, ConstrainedTerm> main,
             List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G,

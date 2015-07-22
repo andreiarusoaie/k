@@ -1,4 +1,4 @@
-package org.kframework.backend.abstracT.rewrite.engine;
+package org.kframework.backend.abstracT.rewriter;
 
 import org.kframework.backend.java.kil.ConstrainedTerm;
 import org.kframework.backend.java.kil.GlobalContext;
@@ -6,20 +6,33 @@ import org.kframework.backend.java.kil.TermContext;
 import org.kframework.backend.java.symbolic.KILtoBackendJavaKILTransformer;
 import org.kframework.backend.java.symbolic.SymbolicRewriter;
 import org.kframework.kil.Rule;
-import org.kframework.kil.Term;
 import org.kframework.krun.KRunExecutionException;
 import org.kframework.krun.api.SearchType;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
- * Created by andrei on 18/07/15.
+ * Created by Andrei on 18/07/15.
+ * Acts like a wrapper for {@link org.kframework.backend.java.symbolic.SymbolicRewriter},
+ * where the rewriter and the execution context(s) are known; the class is meant to
+ * contain methods which get a {@link ConstrainedTerm} and return one or more such terms
+ * after symbolic execution of the parameter.
+ *
  */
 public class AbstractRewriter {
 
+    /**
+     * Computes a list of {@link ConstrainedTerm} after one symbolic execution step
+     * @param constrainedTerm is the initial term to be executed
+     * @param pattern represents the rewriter's search pattern
+     * @param globalContext the global context
+     * @param rewriter is a {@link SymbolicRewriter} instance
+     * @param context the local context
+     * @param transformer the {@link KILtoBackendJavaKILTransformer} required by the rewriter
+     * @return a list of {@link ConstrainedTerm}
+     * @throws KRunExecutionException
+     */
     public static List<ConstrainedTerm> oneSearchStep(
             ConstrainedTerm constrainedTerm,
             Rule pattern,
@@ -32,15 +45,16 @@ public class AbstractRewriter {
         // empty claims
         List<org.kframework.backend.java.kil.Rule> claims = Collections.emptyList();
 
-        // custom parameters for search
+        // custom parameters for search; -1 for bound means that there is bound limit
         Integer bound = -1;
         Integer depth = 1;
+        // do not ask for the execution graph
         boolean computeGraph = false;
 
-        // pattern rule
+        // pass pattern as a rule for the engine
         org.kframework.backend.java.kil.Rule patternRule = preparePatternRule(pattern, context, transformer);
 
-        // prepare context for rewrite engine
+        // prepare term context
         TermContext termContext = TermContext.of(globalContext);
 
         // target term unavailable for now in SymbolicRewriter
@@ -50,34 +64,11 @@ public class AbstractRewriter {
         rewriter.search(constrainedTerm, targetTerm, claims, patternRule, bound, depth, SearchType.PLUS, termContext, computeGraph);
 
         return rewriter.getResults();
-//            for (Map<Variable, org.kframework.backend.java.kil.Term> map : hits) {
-//                // Construct substitution map from the search results
-//                Map<String, org.kframework.kil.Term> substitutionMap =
-//                        new HashMap<String, Term>();
-//                for (Variable var : map.keySet()) {
-//                    org.kframework.kil.Term kilTerm =
-//                            (org.kframework.kil.Term) map.get(var).accept(
-//                                    new BackendJavaKILtoKILTransformer(getContext()));
-//                    substitutionMap.put(var.name(), kilTerm);
-//                }
-//
-//                // Apply the substitution to the pattern
-//                org.kframework.kil.Term rawResult =
-//                        (org.kframework.kil.Term) new SubstitutionFilter(substitutionMap, getContext())
-//                                .visitNode(pattern.getBody());
-//
-//                searchResults.add(new SearchResult(
-//                        new JavaKRunState(rawResult, getCounter()),
-//                        substitutionMap,
-//                        compilationInfo));
-//            }
-//
-//        }
     }
 
+    // The pattern needs to be a rewrite in order for the transformer to be
+    // able to handle it, so we need to give it a right-hand-side.
     private static org.kframework.backend.java.kil.Rule preparePatternRule(Rule pattern, org.kframework.kil.loader.Context context, KILtoBackendJavaKILTransformer transformer) {
-        // The pattern needs to be a rewrite in order for the transformer to be
-        // able to handle it, so we need to give it a right-hand-side.
         org.kframework.kil.Cell c = new org.kframework.kil.Cell();
         c.setLabel("generatedTop");
         c.setContents(new org.kframework.kil.Bag());

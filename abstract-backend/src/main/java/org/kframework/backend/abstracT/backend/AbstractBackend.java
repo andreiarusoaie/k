@@ -1,4 +1,4 @@
-package org.kframework.backend.abstracT;
+package org.kframework.backend.abstracT.backend;
 
 
 import com.google.inject.Inject;
@@ -45,6 +45,7 @@ import org.kframework.utils.file.FileUtil;
  */
 public class AbstractBackend extends BasicBackend {
 
+    // keep the same binary as for the java backend
     public static final String DEFINITION_FILENAME = "java_symbolic_definition.bin";
 
     private final BinaryLoader loader;

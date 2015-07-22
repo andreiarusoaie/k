@@ -1,4 +1,4 @@
-package org.kframework.backend.abstracT;
+package org.kframework.backend.abstracT.backend;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.multibindings.MapBinder;
