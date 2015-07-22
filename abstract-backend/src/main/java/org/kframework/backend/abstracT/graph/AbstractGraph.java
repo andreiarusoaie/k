@@ -120,6 +120,22 @@ public class AbstractGraph {
         return (abstractEdges.size() == 0 && abstractNodes.size() == 1 && abstractNodes.get(0).equals(singletonNode));
     }
 
+    /**
+     * Computes a deep copy of the graph modulo node's contents
+     * @return a copy this graph
+     */
+    public AbstractGraph copy() {
+        List<AbstractGraphNode> newAbstractNodes = new ArrayList<AbstractGraphNode>(abstractNodes.size());
+        for (AbstractGraphNode node : abstractNodes) {
+            newAbstractNodes.add(node.copy());
+        }
+        List<AbstractGraphEdge> newAbstractEdges = new ArrayList<AbstractGraphEdge>(abstractEdges.size());
+        for (AbstractGraphEdge edge : abstractEdges) {
+            newAbstractEdges.add(edge.copy());
+        }
+        return new AbstractGraph(newAbstractNodes, newAbstractEdges);
+    }
+
     private DirectedSparseGraph getJungGraph() {
         DirectedSparseGraph jungGraph = new DirectedSparseGraph();
         for (AbstractGraphEdge abstractGraphEdge : abstractEdges) {

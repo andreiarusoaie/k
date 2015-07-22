@@ -35,4 +35,8 @@ public class AbstractGraphEdge {
         }
         return false;
     }
+
+    public AbstractGraphEdge copy() {
+        return new AbstractGraphEdge(source.copy(), target.copy(), edgeType);
+    }
 }
