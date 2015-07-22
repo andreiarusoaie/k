@@ -1,4 +1,4 @@
-package org.kframework.backend.abstracT;
+package org.kframework.backend.abstracT.backend;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.TypeLiteral;
@@ -6,7 +6,7 @@ import com.google.inject.multibindings.Multibinder;
 import org.kframework.utils.inject.Options;
 
 /**
- * Created by andrei on 14.07.2015.
+ * Created by Andrei on 14.07.2015.
  */
 public class AbstractKRunModule extends AbstractModule {
     AbstractOptions options = new AbstractOptions();

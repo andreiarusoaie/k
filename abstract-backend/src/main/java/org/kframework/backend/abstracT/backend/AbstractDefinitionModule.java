@@ -1,11 +1,11 @@
-package org.kframework.backend.abstracT;
+package org.kframework.backend.abstracT.backend;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.multibindings.MapBinder;
 import org.kframework.krun.tools.Executor;
 
 /**
- * Created by andrei on 14.07.2015.
+ * Created by Andrei on 14.07.2015.
  */
 public class AbstractDefinitionModule extends AbstractModule {
     @Override

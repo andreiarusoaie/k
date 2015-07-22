@@ -1,10 +1,10 @@
-package org.kframework.backend.abstracT;
+package org.kframework.backend.abstracT.backend;
 
 import com.beust.jcommander.Parameter;
 import org.kframework.utils.inject.RequestScoped;
 
 /**
- * Created by andrei on 14.07.2015.
+ * Created by Andrei on 14.07.2015.
  */
 @RequestScoped
 public final class AbstractOptions {
