@@ -31,6 +31,14 @@ public class AbstractGraphNode {
         return false;
     }
 
+    /**
+     * Deep copy modulo ConstrainedTerms (which are shallow copied)
+     * @return a copy of this node
+     */
+    public AbstractGraphNode copy() {
+        return new AbstractGraphNode((ConstrainedTerm) lhs.shallowCopy(), (ConstrainedTerm) rhs.shallowCopy());
+    }
+
     @Override
     public String toString() {
         return lhs + "\n=>\n" + rhs;

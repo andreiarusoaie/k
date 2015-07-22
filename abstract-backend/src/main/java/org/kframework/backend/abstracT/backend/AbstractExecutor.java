@@ -271,4 +271,9 @@ public class AbstractExecutor extends JavaSymbolicExecutor {
         return new ConstrainedTerm(initialTerm, ConjunctiveFormula.of(Substitution.empty(), persistentUniqueList, PersistentUniqueList.empty(), termContext));
     }
 
+    private boolean checkAbstractGraph() {
+
+        return false;
+    }
+
 }
