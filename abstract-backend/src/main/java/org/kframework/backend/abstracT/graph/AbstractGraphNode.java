@@ -8,10 +8,12 @@ import org.kframework.backend.java.kil.ConstrainedTerm;
  */
 public class AbstractGraphNode {
     private ConstrainedTerm lhs, rhs;
+    private NodeStatus status;
 
     public AbstractGraphNode(ConstrainedTerm lhs, ConstrainedTerm rhs) {
         this.lhs = lhs;
         this.rhs = rhs;
+        status = NodeStatus.VALID;
     }
 
     public ConstrainedTerm getLhs() {
@@ -37,6 +39,10 @@ public class AbstractGraphNode {
      */
     public AbstractGraphNode copy() {
         return new AbstractGraphNode((ConstrainedTerm) lhs.shallowCopy(), (ConstrainedTerm) rhs.shallowCopy());
+    }
+
+    public void setStatus(NodeStatus status) {
+        this.status = status;
     }
 
     @Override

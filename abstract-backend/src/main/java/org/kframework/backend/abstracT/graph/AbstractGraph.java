@@ -107,6 +107,14 @@ public class AbstractGraph {
         return frontier;
     }
 
+    public List<AbstractGraphNode> getAbstractNodes() {
+        return abstractNodes;
+    }
+
+    public List<AbstractGraphEdge> getAbstractEdges() {
+        return abstractEdges;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof AbstractGraph) {
@@ -152,5 +160,22 @@ public class AbstractGraph {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();
         frame.setVisible(true);
+    }
+
+    public boolean isTerminalNode(AbstractGraphNode node) {
+        if (abstractNodes.contains(node) && getSuccesors(node).isEmpty()) {
+            return true;
+        }
+        return false;
+    }
+
+    public List<AbstractGraphNode> getPredecessorsByEdgeType(AbstractGraphNode abstractGraphNode, EdgeType symbolicStep) {
+        List<AbstractGraphNode> predecessors = new ArrayList<>();
+        for (AbstractGraphEdge edge : abstractEdges) {
+            if(edge.getTarget().equals(abstractGraphNode) && symbolicStep == edge.getEdgeType()) {
+                predecessors.add(abstractGraphNode);
+            }
+        }
+        return predecessors;
     }
 }

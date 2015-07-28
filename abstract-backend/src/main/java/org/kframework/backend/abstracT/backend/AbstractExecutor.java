@@ -6,6 +6,7 @@ import org.kframework.backend.abstracT.graph.AbstractGraph;
 import org.kframework.backend.abstracT.graph.AbstractGraphEdge;
 import org.kframework.backend.abstracT.graph.AbstractGraphNode;
 import org.kframework.backend.abstracT.graph.EdgeType;
+import org.kframework.backend.abstracT.graph.NodeStatus;
 import org.kframework.backend.abstracT.rewriter.AbstractRewriter;
 import org.kframework.backend.abstracT.graph.specification.AbstractGraphNodeSpecification;
 import org.kframework.backend.abstracT.graph.specification.AbstractGraphSpecification;
@@ -32,7 +33,6 @@ import org.kframework.kil.Rule;
 import org.kframework.kil.Term;
 import org.kframework.krun.KRunExecutionException;
 import org.kframework.krun.api.KRunState;
-import org.kframework.krun.api.RewriteRelation;
 import org.kframework.krun.api.SearchResults;
 import org.kframework.krun.api.SearchType;
 import org.kframework.parser.ProgramLoader;
@@ -67,6 +67,7 @@ public class AbstractExecutor extends JavaSymbolicExecutor {
         Map.Entry<ConstrainedTerm, ConstrainedTerm> mainGoal = getMainFormula(abstractGraphSpecification);
         List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G = getListOfGoals(abstractGraphSpecification);
         AbstractGraph abstractGraph = getGraph(mainGoal, G, pattern);
+        abstractGraph = annotateAbstractGraph(abstractGraph, pattern);
         abstractGraph.displayGraph();
         new Scanner(System.in).nextLine();
         return super.search(bound, depth, searchType, pattern, cfg, compilationInfo, computeGraph);
@@ -271,9 +272,69 @@ public class AbstractExecutor extends JavaSymbolicExecutor {
         return new ConstrainedTerm(initialTerm, ConjunctiveFormula.of(Substitution.empty(), persistentUniqueList, PersistentUniqueList.empty(), termContext));
     }
 
-    private boolean checkAbstractGraph() {
+    /**
+     * Traverses the abstract graph and checks the following:
+     * 1. for every terminal node: lhs implies rhs
+     * 2. for every intermediate node: all EdgeType.SYMBOLIC children = all symbolic successors, or
+     *    all EdgeType.CIRC = symbolic derivatives of Circ and lhs implies (closure)Circ.lhs
+     *
+     * @return a new {@link AbstractGraph} which contains status information for every node
+     */
+    private AbstractGraph annotateAbstractGraph(AbstractGraph abstractGraph, Rule pattern) throws KRunExecutionException {
 
-        return false;
+        AbstractGraph graph = abstractGraph;
+        for (AbstractGraphNode node : graph.getAbstractNodes()) {
+            if (graph.isTerminalNode(node) && !node.getLhs().implies(node.getRhs())) {
+                node.setStatus(NodeStatus.INVALID_IMPLICATION);
+            }
+            else {
+                List<ConstrainedTerm> symbolicChildren = gatherLhs(graph.getSuccesorsByEdgeType(node, EdgeType.SYMBOLIC_STEP));
+                List<AbstractGraphNode> circChildren = graph.getSuccesorsByEdgeType(node, EdgeType.CIRCULARITY);
+                if (!symbolicChildren.isEmpty()) {
+                    if (!circChildren.isEmpty()) {
+                        node.setStatus(NodeStatus.INVALID_SYMBOLIC);
+                    }
+                    else {
+                        List<ConstrainedTerm> symbolicSteps = AbstractRewriter.oneSearchStep(node.getLhs(), pattern, getGlobalContext(), getSymbolicRewriter(), getContext(), getTransformer());
+                        if (!listAsSetEquality(symbolicChildren, symbolicSteps)) {
+                            node.setStatus(NodeStatus.INVALID_SYMBOLIC);
+                        }
+                    }
+                }
+                else {
+                    if (!circChildren.isEmpty()) {
+                        List<AbstractGraphNode> firstChildPred = graph.getPredecessorsByEdgeType(circChildren.get(0), EdgeType.SYMBOLIC_STEP);
+                        if (firstChildPred.size() == 1 && !node.getLhs().implies(replaceVariablesWithFresh(firstChildPred.get(0).getLhs()))) {
+                            node.setStatus(NodeStatus.INVALID_CIRC);
+                        }
+                    }
+                }
+            }
+        }
+
+        return graph;
+    }
+
+    private boolean listAsSetEquality(List<ConstrainedTerm> list1, List<ConstrainedTerm> list2) {
+        for(Object obj : list1) {
+            if (!list2.contains(obj)) {
+                return false;
+            }
+        }
+        for(Object obj : list2) {
+            if (!list1.contains(obj)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<ConstrainedTerm> gatherLhs(List<AbstractGraphNode> symbolicChildren) {
+        List<ConstrainedTerm> result = new ArrayList<>();
+        for (AbstractGraphNode node : symbolicChildren) {
+            result.add(node.getLhs());
+        }
+        return result;
     }
 
 }
