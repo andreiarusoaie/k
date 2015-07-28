@@ -173,7 +173,7 @@ public class AbstractGraph {
         List<AbstractGraphNode> predecessors = new ArrayList<>();
         for (AbstractGraphEdge edge : abstractEdges) {
             if(edge.getTarget().equals(abstractGraphNode) && symbolicStep == edge.getEdgeType()) {
-                predecessors.add(abstractGraphNode);
+                predecessors.add(edge.getSource());
             }
         }
         return predecessors;
