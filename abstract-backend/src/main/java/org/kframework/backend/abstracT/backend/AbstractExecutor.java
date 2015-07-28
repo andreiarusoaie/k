@@ -26,21 +26,31 @@ import org.kframework.backend.java.symbolic.PatternMatchRewriter;
 import org.kframework.backend.java.symbolic.PersistentUniqueList;
 import org.kframework.backend.java.symbolic.Substitution;
 import org.kframework.backend.java.symbolic.SymbolicRewriter;
+import org.kframework.backend.java.util.JavaKRunState;
 import org.kframework.compile.utils.RuleCompilerSteps;
 import org.kframework.kil.ASTNode;
 import org.kframework.kil.BoolBuiltin;
 import org.kframework.kil.Rule;
 import org.kframework.kil.Term;
+import org.kframework.kil.loader.Context;
 import org.kframework.krun.KRunExecutionException;
+import org.kframework.krun.SubstitutionFilter;
+import org.kframework.krun.api.KRunGraph;
 import org.kframework.krun.api.KRunState;
+import org.kframework.krun.api.RewriteRelation;
+import org.kframework.krun.api.SearchResult;
 import org.kframework.krun.api.SearchResults;
 import org.kframework.krun.api.SearchType;
+import org.kframework.krun.tools.Executor;
 import org.kframework.parser.ProgramLoader;
 import org.kframework.utils.Stopwatch;
+import org.kframework.utils.errorsystem.KEMException;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -49,14 +59,32 @@ import java.util.Scanner;
 /**
  * Created by andrei on 14.07.2015.
  */
-public class AbstractExecutor extends JavaSymbolicExecutor {
+public class AbstractExecutor implements Executor {
+
+    private final KILtoBackendJavaKILTransformer kilTransformer;
+    private final GlobalContext globalContext;
+    private final Provider<SymbolicRewriter> symbolicRewriter;
+    private final Provider<PatternMatchRewriter> patternMatchRewriter;
+    private final KILtoBackendJavaKILTransformer transformer;
+    private final Context context;
+    private final KRunState.Counter counter;
+    private final Stopwatch sw;
+
 
     private final AbstractOptions abstractOptions;
     private final Provider<ProgramLoader> programLoader;
 
     @Inject
     AbstractExecutor(org.kframework.kil.loader.Context context, JavaExecutionOptions javaOptions, KILtoBackendJavaKILTransformer kilTransformer, GlobalContext globalContext, Provider<SymbolicRewriter> symbolicRewriter, Provider<PatternMatchRewriter> patternMatchRewriter, KILtoBackendJavaKILTransformer transformer, Definition definition, KRunState.Counter counter, Stopwatch sw, AbstractOptions abstractOptions, Provider<ProgramLoader> programLoader) {
-        super(context, javaOptions, kilTransformer, globalContext, symbolicRewriter, patternMatchRewriter, transformer, definition, counter, sw);
+        this.context = context;
+        this.kilTransformer = kilTransformer;
+        this.globalContext = globalContext;
+        this.symbolicRewriter = symbolicRewriter;
+        this.patternMatchRewriter = patternMatchRewriter;
+        this.transformer = transformer;
+        globalContext.setDefinition(definition);
+        this.counter = counter;
+        this.sw = sw;
         this.abstractOptions = abstractOptions;
         this.programLoader = programLoader;
     }
@@ -70,7 +98,7 @@ public class AbstractExecutor extends JavaSymbolicExecutor {
         abstractGraph = annotateAbstractGraph(abstractGraph, pattern);
         abstractGraph.displayGraph();
         new Scanner(System.in).nextLine();
-        return super.search(bound, depth, searchType, pattern, cfg, compilationInfo, computeGraph);
+        return internalSearch(bound, depth, searchType, pattern, cfg, compilationInfo, computeGraph);
     }
 
     // this method is 'hacky' since it returns the first formula as the main formula
@@ -335,6 +363,189 @@ public class AbstractExecutor extends JavaSymbolicExecutor {
             result.add(node.getLhs());
         }
         return result;
+    }
+
+    @Override
+    public RewriteRelation run(org.kframework.kil.Term cfg, boolean computeGraph) throws KRunExecutionException {
+        return javaRewriteEngineRun(cfg, -1, computeGraph);
+    }
+
+    /**
+     * private method to convert a generic kil term to java kil.1
+     *
+     * @return JavaKil Term.
+     */
+    private org.kframework.backend.java.kil.Term getJavaKilTerm(org.kframework.kil.Term cfg) {
+        org.kframework.backend.java.kil.Term term = kilTransformer.transformAndEval(cfg);
+        sw.printIntermediate("Convert initial configuration to internal representation");
+        TermContext termContext = TermContext.of(globalContext);
+        termContext.setTopTerm(term);
+        return term;
+    }
+
+    /**
+     * Given a term, return the TermContext constructed from the globalContext
+     *
+     * @param term
+     * @return
+     */
+    private TermContext getTermContext(org.kframework.backend.java.kil.Term term) {
+        TermContext termContext = TermContext.of(globalContext);
+        termContext.setTopTerm(term);
+        return termContext;
+    }
+
+
+    private RewriteRelation patternMatcherRewriteRun(org.kframework.backend.java.kil.Term term, TermContext termContext, int bound, boolean computeGraph) {
+
+        if (computeGraph) {
+            KEMException.criticalError("Compute Graph with Pattern Matching Not Implemented Yet");
+        }
+        ConstrainedTerm rewriteResult = new ConstrainedTerm(getPatternMatchRewriter().rewrite(term, bound, termContext), termContext);
+        JavaKRunState finalState = new JavaKRunState(rewriteResult, context, counter);
+        return new RewriteRelation(finalState, null);
+    }
+
+    private RewriteRelation conventionalRewriteRun(ConstrainedTerm constrainedTerm, int bound, boolean computeGraph) {
+        SymbolicRewriter rewriter = symbolicRewriter.get();
+        KRunState finalState = rewriter.rewrite(
+                constrainedTerm,
+                context,
+                bound,
+                computeGraph);
+
+        return new RewriteRelation(finalState, rewriter.getExecutionGraph());
+    }
+
+    /**
+     * Rewrite Enginre run that creates a new KRun State.
+     * @param cfg The term configuration to begin with.
+     * @param bound The number of steps
+     * @param computeGraph Option to compute Execution Graph,
+     * @return The execution relation.
+     */
+    protected RewriteRelation javaRewriteEngineRun(org.kframework.kil.Term cfg, int bound, boolean computeGraph) {
+        org.kframework.backend.java.kil.Term term = getJavaKilTerm(cfg);
+        TermContext termContext = getTermContext(term);
+        ConstrainedTerm constrainedTerm = new ConstrainedTerm(term, ConjunctiveFormula.of(termContext));
+        return conventionalRewriteRun(constrainedTerm, bound, computeGraph);
+    }
+
+    /**
+     * Rewrite Engine Run with existing krun State.
+     * @param initialState The existing State
+     * @param bound The number of steps
+     * @param computeGraph Option to compute Execution Graph.
+     * @return The execution relation.
+     */
+    private RewriteRelation javaRewriteEngineRun(JavaKRunState initialState, int bound, boolean computeGraph) {
+        return conventionalRewriteRun(initialState.getConstrainedTerm(), bound, computeGraph);
+    }
+
+
+    public SearchResults internalSearch(
+            Integer bound,
+            Integer depth,
+            SearchType searchType,
+            org.kframework.kil.Rule pattern,
+            org.kframework.kil.Term cfg,
+            RuleCompilerSteps compilationInfo,
+            boolean computeGraph) throws KRunExecutionException {
+
+        List<org.kframework.backend.java.kil.Rule> claims = Collections.emptyList();
+        if (bound == null) {
+            bound = -1;
+        }
+        if (depth == null) {
+            depth = -1;
+        }
+
+        // The pattern needs to be a rewrite in order for the transformer to be
+        // able to handle it, so we need to give it a right-hand-side.
+        org.kframework.kil.Cell c = new org.kframework.kil.Cell();
+        c.setLabel("generatedTop");
+        c.setContents(new org.kframework.kil.Bag());
+        pattern.setBody(new org.kframework.kil.Rewrite(pattern.getBody(), c, context));
+        org.kframework.backend.java.kil.Rule patternRule = transformer.transformAndEval(pattern);
+
+        List<SearchResult> searchResults = new ArrayList<SearchResult>();
+        List<Substitution<Variable, org.kframework.backend.java.kil.Term>> hits;
+        org.kframework.backend.java.kil.Term initialTerm = kilTransformer.transformAndEval(cfg);
+        org.kframework.backend.java.kil.Term targetTerm = null;
+        TermContext termContext = TermContext.of(globalContext);
+        KRunGraph executionGraph = null;
+
+        // intialize symbolic rewriter
+        SymbolicRewriter rewriter = getSymbolicRewriter();
+        hits = rewriter.search(initialTerm, targetTerm, claims,
+                patternRule, bound, depth, searchType, termContext, computeGraph);
+        executionGraph = rewriter.getExecutionGraph();
+
+        for (Map<Variable, org.kframework.backend.java.kil.Term> map : hits) {
+            // Construct substitution map from the search results
+            Map<String, org.kframework.kil.Term> substitutionMap =
+                    new HashMap<String, Term>();
+            for (Variable var : map.keySet()) {
+                org.kframework.kil.Term kilTerm =
+                        (org.kframework.kil.Term) map.get(var).accept(
+                                new BackendJavaKILtoKILTransformer(context));
+                substitutionMap.put(var.name(), kilTerm);
+            }
+
+            // Apply the substitution to the pattern
+            org.kframework.kil.Term rawResult =
+                    (org.kframework.kil.Term) new SubstitutionFilter(substitutionMap, context)
+                            .visitNode(pattern.getBody());
+
+            searchResults.add(new SearchResult(
+                    new JavaKRunState(rawResult, counter),
+                    substitutionMap,
+                    compilationInfo));
+        }
+
+        SearchResults retval = new SearchResults(
+                searchResults,
+                executionGraph);
+
+        return retval;
+    }
+
+    @Override
+    public RewriteRelation step(org.kframework.kil.Term cfg, int steps, boolean computeGraph)
+            throws KRunExecutionException {
+        return javaRewriteEngineRun(cfg, steps, computeGraph);
+    }
+
+    public SymbolicRewriter getSymbolicRewriter() {
+        return symbolicRewriter.get();
+    }
+
+    private PatternMatchRewriter getPatternMatchRewriter() {
+        return patternMatchRewriter.get();
+    }
+
+    public GlobalContext getGlobalContext() {
+        return globalContext;
+    }
+
+    public Context getContext() {
+        return context;
+    }
+
+    public Stopwatch getSw() {
+        return sw;
+    }
+
+    public KRunState.Counter getCounter() {
+        return counter;
+    }
+
+    public KILtoBackendJavaKILTransformer getKilTransformer() {
+        return kilTransformer;
+    }
+
+    public KILtoBackendJavaKILTransformer getTransformer() {
+        return transformer;
     }
 
 }
