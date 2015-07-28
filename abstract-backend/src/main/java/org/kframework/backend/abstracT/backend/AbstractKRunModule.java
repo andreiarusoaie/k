@@ -1,8 +1,17 @@
 package org.kframework.backend.abstracT.backend;
 
 import com.google.inject.AbstractModule;
+import com.google.inject.Provides;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
+import org.kframework.backend.java.kil.Definition;
+import org.kframework.backend.java.symbolic.JavaSymbolicBackend;
+import org.kframework.kil.loader.Context;
+import org.kframework.utils.BinaryLoader;
+import org.kframework.utils.Stopwatch;
+import org.kframework.utils.errorsystem.KExceptionManager;
+import org.kframework.utils.file.FileUtil;
+import org.kframework.utils.inject.DefinitionScoped;
 import org.kframework.utils.inject.Options;
 
 /**

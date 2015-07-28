@@ -19,7 +19,6 @@ import org.kframework.backend.java.symbolic.BackendJavaKILtoKILTransformer;
 import org.kframework.backend.java.symbolic.ConjunctiveFormula;
 import org.kframework.backend.java.symbolic.CopyOnWriteTransformer;
 import org.kframework.backend.java.symbolic.Equality;
-import org.kframework.backend.java.symbolic.JavaExecutionOptions;
 import org.kframework.backend.java.symbolic.KILtoBackendJavaKILTransformer;
 import org.kframework.backend.java.symbolic.PatternMatchRewriter;
 import org.kframework.backend.java.symbolic.PersistentUniqueList;
@@ -74,7 +73,7 @@ public class AbstractExecutor implements Executor {
     private final Provider<ProgramLoader> programLoader;
 
     @Inject
-    AbstractExecutor(org.kframework.kil.loader.Context context, JavaExecutionOptions javaOptions, KILtoBackendJavaKILTransformer kilTransformer, GlobalContext globalContext, Provider<SymbolicRewriter> symbolicRewriter, Provider<PatternMatchRewriter> patternMatchRewriter, KILtoBackendJavaKILTransformer transformer, Definition definition, KRunState.Counter counter, Stopwatch sw, AbstractOptions abstractOptions, Provider<ProgramLoader> programLoader) {
+    AbstractExecutor(org.kframework.kil.loader.Context context, KILtoBackendJavaKILTransformer kilTransformer, GlobalContext globalContext, Provider<SymbolicRewriter> symbolicRewriter, Provider<PatternMatchRewriter> patternMatchRewriter, KILtoBackendJavaKILTransformer transformer, Definition definition, KRunState.Counter counter, Stopwatch sw, AbstractOptions abstractOptions, Provider<ProgramLoader> programLoader) {
         this.context = context;
         this.kilTransformer = kilTransformer;
         this.globalContext = globalContext;
@@ -90,7 +89,7 @@ public class AbstractExecutor implements Executor {
 
     @Override
     public SearchResults search(Integer bound, Integer depth, SearchType searchType, Rule pattern, Term cfg, RuleCompilerSteps compilationInfo, boolean computeGraph) throws KRunExecutionException {
-        Goals goals = new Goals(abstractOptions.abstractGraph, programLoader, getContext());
+        Goals goals = new Goals(abstractOptions.goals, programLoader, getContext());
         Map.Entry<ConstrainedTerm, ConstrainedTerm> mainGoal = getMainFormula(goals);
         List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G = getListOfGoals(goals);
         AbstractGraph abstractGraph = getGraph(mainGoal, G, pattern);

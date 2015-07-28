@@ -4,6 +4,7 @@ package org.kframework.backend.abstracT.backend;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import org.kframework.backend.Backends;
+import org.kframework.backend.BasicBackend;
 import org.kframework.backend.FirstStep;
 import org.kframework.backend.LastStep;
 import org.kframework.backend.java.compile.AddLocalRewritesUnderCells;
@@ -13,6 +14,8 @@ import org.kframework.backend.java.compile.GenerateKRewriteMachineInstructions;
 import org.kframework.backend.java.compile.JavaBackendCell2DataStructure;
 import org.kframework.backend.java.compile.KORECompilationSteps;
 import org.kframework.backend.java.indexing.RuleIndex;
+import org.kframework.backend.java.symbolic.JavaBackendKModule;
+import org.kframework.backend.java.symbolic.JavaSymbolicBackend;
 import org.kframework.backend.java.symbolic.KILtoBackendJavaKILTransformer;
 import org.kframework.compile.FlattenModules;
 import org.kframework.compile.ResolveConfigurationAbstraction;
@@ -36,7 +39,6 @@ import org.kframework.kil.loader.Context;
 import org.kframework.kompile.KompileOptions;
 import org.kframework.utils.BinaryLoader;
 import org.kframework.utils.Stopwatch;
-import org.kframework.backend.BasicBackend;
 import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
 
@@ -45,8 +47,7 @@ import org.kframework.utils.file.FileUtil;
  */
 public class AbstractBackend extends BasicBackend {
 
-    // keep the same binary as for the java backend
-    public static final String DEFINITION_FILENAME = "java_symbolic_definition.bin";
+    public static final String DEFINITION_FILENAME = JavaSymbolicBackend.DEFINITION_FILENAME;
 
     private final BinaryLoader loader;
     private final Provider<RuleIndex> index;

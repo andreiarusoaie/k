@@ -8,7 +8,7 @@ import org.kframework.utils.inject.RequestScoped;
  */
 @RequestScoped
 public final class AbstractOptions {
-    @Parameter(names="--abstract-graph", description="Build the abstract graph using the specification file given as argument", required=true)
-    public String abstractGraph = null;
+    @Parameter(names="--goals", description="Build the abstract graph using the specification file given as argument", required=true)
+    public String goals = null;
 
 }
