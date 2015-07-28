@@ -8,8 +8,8 @@ import org.kframework.backend.abstracT.graph.AbstractGraphNode;
 import org.kframework.backend.abstracT.graph.EdgeType;
 import org.kframework.backend.abstracT.graph.NodeStatus;
 import org.kframework.backend.abstracT.rewriter.AbstractRewriter;
-import org.kframework.backend.abstracT.graph.specification.AbstractGraphNodeSpecification;
-import org.kframework.backend.abstracT.graph.specification.AbstractGraphSpecification;
+import org.kframework.backend.abstracT.xml.input.RLGoal;
+import org.kframework.backend.abstracT.xml.input.Goals;
 import org.kframework.backend.java.kil.ConstrainedTerm;
 import org.kframework.backend.java.kil.Definition;
 import org.kframework.backend.java.kil.GlobalContext;
@@ -20,7 +20,6 @@ import org.kframework.backend.java.symbolic.ConjunctiveFormula;
 import org.kframework.backend.java.symbolic.CopyOnWriteTransformer;
 import org.kframework.backend.java.symbolic.Equality;
 import org.kframework.backend.java.symbolic.JavaExecutionOptions;
-import org.kframework.backend.java.symbolic.JavaSymbolicExecutor;
 import org.kframework.backend.java.symbolic.KILtoBackendJavaKILTransformer;
 import org.kframework.backend.java.symbolic.PatternMatchRewriter;
 import org.kframework.backend.java.symbolic.PersistentUniqueList;
@@ -91,9 +90,9 @@ public class AbstractExecutor implements Executor {
 
     @Override
     public SearchResults search(Integer bound, Integer depth, SearchType searchType, Rule pattern, Term cfg, RuleCompilerSteps compilationInfo, boolean computeGraph) throws KRunExecutionException {
-        AbstractGraphSpecification abstractGraphSpecification = new AbstractGraphSpecification(abstractOptions.abstractGraph, programLoader, getContext());
-        Map.Entry<ConstrainedTerm, ConstrainedTerm> mainGoal = getMainFormula(abstractGraphSpecification);
-        List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G = getListOfGoals(abstractGraphSpecification);
+        Goals goals = new Goals(abstractOptions.abstractGraph, programLoader, getContext());
+        Map.Entry<ConstrainedTerm, ConstrainedTerm> mainGoal = getMainFormula(goals);
+        List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G = getListOfGoals(goals);
         AbstractGraph abstractGraph = getGraph(mainGoal, G, pattern);
         abstractGraph = annotateAbstractGraph(abstractGraph, pattern);
         abstractGraph.displayGraph();
@@ -103,29 +102,29 @@ public class AbstractExecutor implements Executor {
 
     // this method is 'hacky' since it returns the first formula as the main formula
     // TODO: fix the way we identify the main formula
-    private Map.Entry<ConstrainedTerm, ConstrainedTerm> getMainFormula(AbstractGraphSpecification abstractGraphSpecification) {
-        AbstractGraphNodeSpecification abstractGraphNodeSpecification = abstractGraphSpecification.getAbstractGraphNodeSpecs().get(0);
-        return getConstrainedFormula(abstractGraphNodeSpecification);
+    private Map.Entry<ConstrainedTerm, ConstrainedTerm> getMainFormula(Goals goals) {
+        RLGoal RLGoal = goals.getRlGoals().get(0);
+        return getConstrainedFormula(RLGoal);
     }
 
 
-    private List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> getListOfGoals(AbstractGraphSpecification abstractGraphSpecification) {
+    private List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> getListOfGoals(Goals abstractGraphSpecification) {
         List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> goals = new ArrayList<>();
-        for (AbstractGraphNodeSpecification abstractGraphNodeSpecification : abstractGraphSpecification.getAbstractGraphNodeSpecs()) {
-            goals.add(new AbstractMap.SimpleEntry<ConstrainedTerm, ConstrainedTerm>(getConstrainedFormula(abstractGraphNodeSpecification)));
+        for (RLGoal RLGoal : abstractGraphSpecification.getRlGoals()) {
+            goals.add(new AbstractMap.SimpleEntry<ConstrainedTerm, ConstrainedTerm>(getConstrainedFormula(RLGoal)));
         }
         return goals;
     }
 
-    private Map.Entry<ConstrainedTerm, ConstrainedTerm> getConstrainedFormula(AbstractGraphNodeSpecification abstractGraphNodeSpecification){
+    private Map.Entry<ConstrainedTerm, ConstrainedTerm> getConstrainedFormula(RLGoal RLGoal){
         TermContext termContext = TermContext.of(getGlobalContext());
 
-        org.kframework.backend.java.kil.Term lhsTerm = getKilTransformer().transformAndEval(abstractGraphNodeSpecification.getLhs());
-        org.kframework.backend.java.kil.Term lhsConstraint = getKilTransformer().transformAndEval(abstractGraphNodeSpecification.getLhsConstraint());
+        org.kframework.backend.java.kil.Term lhsTerm = getKilTransformer().transformAndEval(RLGoal.getLhs());
+        org.kframework.backend.java.kil.Term lhsConstraint = getKilTransformer().transformAndEval(RLGoal.getLhsConstraint());
         ConstrainedTerm lhs = getConstrainedTerm(lhsTerm, lhsConstraint, termContext);
 
-        org.kframework.backend.java.kil.Term rhsTerm = getKilTransformer().transformAndEval(abstractGraphNodeSpecification.getRhs());
-        org.kframework.backend.java.kil.Term rhsConstraint = getKilTransformer().transformAndEval(abstractGraphNodeSpecification.getRhsConstraint());
+        org.kframework.backend.java.kil.Term rhsTerm = getKilTransformer().transformAndEval(RLGoal.getRhs());
+        org.kframework.backend.java.kil.Term rhsConstraint = getKilTransformer().transformAndEval(RLGoal.getRhsConstraint());
         ConstrainedTerm rhs = getConstrainedTerm(rhsTerm, rhsConstraint, termContext);
 
         return new AbstractMap.SimpleEntry<ConstrainedTerm, ConstrainedTerm>(lhs, rhs);

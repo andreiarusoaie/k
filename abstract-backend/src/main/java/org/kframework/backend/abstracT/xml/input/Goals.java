@@ -1,4 +1,4 @@
-package org.kframework.backend.abstracT.graph.specification;
+package org.kframework.backend.abstracT.xml.input;
 
 import com.google.inject.Provider;
 import org.apache.commons.io.FileUtils;
@@ -30,13 +30,13 @@ import java.util.TreeMap;
 /**
  * Created by andrei on 16/07/15.
  */
-public class AbstractGraphSpecification {
-    private List<AbstractGraphNodeSpecification> abstractGraphNodeSpecs;
+public class Goals {
+    private List<RLGoal> rlGoals;
 
 
-    public AbstractGraphSpecification(String graphXMLFilename, Provider<ProgramLoader> programLoader, Context context) {
-        // init abstractGraphNodeSpecs
-        abstractGraphNodeSpecs = new LinkedList<>();
+    public Goals(String graphXMLFilename, Provider<ProgramLoader> programLoader, Context context) {
+        // init rlGoals
+        rlGoals = new LinkedList<>();
         load(graphXMLFilename, programLoader, context);
     }
 
@@ -53,7 +53,7 @@ public class AbstractGraphSpecification {
                     Element childNode = (Element) node;
                     switch (childNode.getNodeName()) {
                     case XMLNodeNames.RLFORMULA:
-                        abstractGraphNodeSpecs.add(load(childNode, programLoader, context));
+                        rlGoals.add(load(childNode, programLoader, context));
                         break;
                     }
                 }
@@ -67,7 +67,7 @@ public class AbstractGraphSpecification {
         }
     }
 
-    private AbstractGraphNodeSpecification load(Element rlNode, Provider<ProgramLoader> programLoader, Context context) {
+    private RLGoal load(Element rlNode, Provider<ProgramLoader> programLoader, Context context) {
         NodeList chNodes = rlNode.getChildNodes();
 
         Term lhs = null;
@@ -112,28 +112,18 @@ public class AbstractGraphSpecification {
                         KEMException.criticalError("Cannot load rhs constaint for " + rlNode + " id " + rlNode.getAttribute("id"));
                     }
                     break;
-                case XMLNodeNames.STEP:
-                    Integer stepNumber = Integer.valueOf(childNode.getAttribute(XMLNodeNames.STEP_NO));
-                    Integer ruleId = Integer.valueOf(childNode.getAttribute(XMLNodeNames.RULE_ID));
-                    Integer depth = Integer.valueOf(childNode.getAttribute(XMLNodeNames.DEPTH));
-                    if (steps.containsKey(stepNumber)) {
-                        KEMException.criticalError("Node " + rlNode + " id " + rlNode.getAttribute("id") + " contains duplicate <step> idendifiers.");
-                    } else {
-                        steps.put(stepNumber, new Pair(ruleId, depth));
-                    }
-                    break;
                 }
             }
         }
         if (lhs != null && rhs != null) {
-            return new AbstractGraphNodeSpecification(lhs, rhs, lhsConstraint, rhsConstraint, steps);
+            return new RLGoal(lhs, rhs, lhsConstraint, rhsConstraint);
         } else {
             KEMException.criticalError("Please provide both lhs and rhs for node " + rlNode + " id " + rlNode.getAttribute("id"));
             return null;
         }
     }
 
-    public List<AbstractGraphNodeSpecification> getAbstractGraphNodeSpecs() {
-        return abstractGraphNodeSpecs;
+    public List<RLGoal> getRlGoals() {
+        return rlGoals;
     }
 }
