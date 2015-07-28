@@ -255,14 +255,14 @@ public class AbstractGraph {
     /**
      * Computer a list of nodes which are the predecessors of a given node
      * linked by an edge of a given type.
-     * @param node
+     * @param abstractGraphNode
      * @param edgeType
      * @return the list of predecessors of {@param node} linked by an edge of {@param edgeType}
      */
-    public List<AbstractGraphNode> getPredecessorsByEdgeType(AbstractGraphNode abstractGraphNode, EdgeType symbolicStep) {
+    public List<AbstractGraphNode> getPredecessorsByEdgeType(AbstractGraphNode abstractGraphNode, EdgeType edgeType) {
         List<AbstractGraphNode> predecessors = new ArrayList<>();
         for (AbstractGraphEdge edge : abstractEdges) {
-            if(edge.getTarget().equals(abstractGraphNode) && symbolicStep == edge.getEdgeType()) {
+            if(edge.getTarget().equals(abstractGraphNode) && edgeType == edge.getEdgeType()) {
                 predecessors.add(edge.getSource());
             }
         }
