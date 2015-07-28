@@ -24,6 +24,14 @@ public class AbstractGraph {
         this.abstractEdges = abstractEdges;
     }
 
+    /**
+     * Check whether the graph has a node determined by lhs and rhs.
+     * @param lhs
+     * @param rhs
+     * @return {@value true} if there is a node in {@field abstractNodes} which has
+     * lhs and rhs equal to {@param lhs} and {@param rhs}, respetively. Otherwise,
+     * return {@value false}
+     */
     public boolean hasNode(ConstrainedTerm lhs, ConstrainedTerm rhs) {
         for (AbstractGraphNode abstractGraphNode : abstractNodes) {
             if (abstractGraphNode.getLhs().equals(lhs) && abstractGraphNode.equals(rhs)) {
@@ -33,6 +41,14 @@ public class AbstractGraph {
         return false;
     }
 
+    /**
+     * Given two {@link ConstrainedTerm} return the corresponding node in the graph
+     * @param lhs
+     * @param rhs
+     * @return an {@link AbstractGraphNode} from {@field abstractNodes} which has lhs and rhs
+     * equal to {@param lhs} and {@param rhs}, respectively. If such a node does not exists
+     * then return {@value null}.
+     */
     public AbstractGraphNode getNode(ConstrainedTerm lhs, ConstrainedTerm rhs) {
         for (AbstractGraphNode abstractGraphNode : abstractNodes) {
             if (abstractGraphNode.getLhs().equals(lhs) && abstractGraphNode.getRhs().equals(rhs)) {
@@ -42,30 +58,57 @@ public class AbstractGraph {
         return null;
     }
 
+    /**
+     * Check whether a given node is in the graph.
+     * @param node
+     * @return true if {@param node} is in {@field abstractNodes}
+     */
     public boolean hasNode(AbstractGraphNode node) {
         return abstractNodes.contains(node);
     }
 
+    /**
+     * Appends a given node to the existing set of nodes only if
+     * the node is not present in the graph.
+     * @param node
+     */
     public void addNode(AbstractGraphNode node) {
         if (!hasNode(node)) {
             abstractNodes.add(node);
         }
     }
 
+    /**
+     * Check whether the graph contains a given edge
+     * @param edge
+     * @return true if {@param edge} is in {@field abstractEdges}
+     */
     private boolean hasEdge(AbstractGraphEdge edge) {
         return abstractEdges.contains(edge);
     }
 
+    /**
+     * Append a new edge to the existing graph.
+     * @param edge
+     */
     public void addEdge(AbstractGraphEdge edge) {
         if (hasNode(edge.getSource()) && hasNode(edge.getTarget()) && !hasEdge(edge)) {
             abstractEdges.add(edge);
         }
     }
 
+    /**
+     * Create an empty {@link AbstractGraph} instance.
+     * @return an instance of {@link AbstractGraph} with empty lists of nodes and edges
+     */
     public static AbstractGraph empty() {
         return new AbstractGraph(new ArrayList<>(), new ArrayList<>());
     }
 
+    /**
+     * Append a given {@link AbstractGraph} to the current graph
+     * @param subgraph
+     */
     public void addSubgraph(AbstractGraph subgraph) {
         for (AbstractGraphNode node : subgraph.abstractNodes) {
             addNode(node);
@@ -73,6 +116,11 @@ public class AbstractGraph {
         abstractEdges.addAll(subgraph.abstractEdges);
     }
 
+    /**
+     * Returns the list of successors of a given node.
+     * @param node
+     * @return the list of all successors of {@param node}
+     */
     public List<AbstractGraphNode> getSuccesors(AbstractGraphNode node) {
         List<AbstractGraphNode> results = new ArrayList<>();
         for (AbstractGraphEdge edge : abstractEdges) {
@@ -83,6 +131,13 @@ public class AbstractGraph {
         return results;
     }
 
+    /**
+     * Computer a list of nodes which are the successors of a given node
+     * linked by an edge of a given type.
+     * @param node
+     * @param edgeType
+     * @return the list of successors of {@param node} linked by an edge of {@param edgeType}
+     */
     public List<AbstractGraphNode> getSuccesorsByEdgeType(AbstractGraphNode node, EdgeType edgeType) {
         List<AbstractGraphNode> results = new ArrayList<>();
         for (AbstractGraphEdge edge : abstractEdges) {
@@ -93,10 +148,19 @@ public class AbstractGraph {
         return results;
     }
 
+    /**
+     * Check whether a given has successors
+     * @param node
+     * @return true if {@param node} has successors
+     */
     public boolean hasSuccessors(AbstractGraphNode node) {
         return !getSuccesors(node).isEmpty();
     }
 
+    /**
+     * Computes a list of nodes which have no successors.
+     * @return a list of nodes representing the 'frontier' of this graph
+     */
     public List<AbstractGraphNode> getFrontier() {
         List<AbstractGraphNode> frontier = new ArrayList<>();
         for (AbstractGraphNode node : abstractNodes) {
@@ -124,6 +188,12 @@ public class AbstractGraph {
         return false;
     }
 
+    /**
+     * Check whether this graph is a singleton, i.e., it contains
+     * exactly one node and no edges
+     * @param singletonNode
+     * @return true if the graph is a singleton
+     */
     public boolean isSingletonGraph(AbstractGraphNode singletonNode) {
         return (abstractEdges.size() == 0 && abstractNodes.size() == 1 && abstractNodes.get(0).equals(singletonNode));
     }
@@ -144,6 +214,10 @@ public class AbstractGraph {
         return new AbstractGraph(newAbstractNodes, newAbstractEdges);
     }
 
+    /**
+     * Convert the existing graph into a jung graph for display only.
+     * @return a {@link DirectedSparseGraph} version of this graph
+     */
     private DirectedSparseGraph getJungGraph() {
         DirectedSparseGraph jungGraph = new DirectedSparseGraph();
         for (AbstractGraphEdge abstractGraphEdge : abstractEdges) {
@@ -152,6 +226,9 @@ public class AbstractGraph {
         return  jungGraph;
     }
 
+    /**
+     * Prepares a {@link JFrame} and displays the current graph on it.
+     */
     public void displayGraph() {
         VisualizationViewer visualizationViewer = new VisualizationViewer(new FRLayout(getJungGraph()), new Dimension(1024, 720));
         visualizationViewer.setVertexToolTipTransformer(new ToStringLabeller<String>());
@@ -162,6 +239,11 @@ public class AbstractGraph {
         frame.setVisible(true);
     }
 
+    /**
+     * Checks whether a node is terminal, i.e., it has no successors
+     * @param node
+     * @return {@value true} if the node is terminal, or {@value false}, otherwise.
+     */
     public boolean isTerminalNode(AbstractGraphNode node) {
         if (abstractNodes.contains(node) && getSuccesors(node).isEmpty()) {
             return true;
@@ -169,6 +251,14 @@ public class AbstractGraph {
         return false;
     }
 
+
+    /**
+     * Computer a list of nodes which are the predecessors of a given node
+     * linked by an edge of a given type.
+     * @param node
+     * @param edgeType
+     * @return the list of predecessors of {@param node} linked by an edge of {@param edgeType}
+     */
     public List<AbstractGraphNode> getPredecessorsByEdgeType(AbstractGraphNode abstractGraphNode, EdgeType symbolicStep) {
         List<AbstractGraphNode> predecessors = new ArrayList<>();
         for (AbstractGraphEdge edge : abstractEdges) {
