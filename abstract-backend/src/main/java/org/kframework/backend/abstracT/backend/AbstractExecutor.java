@@ -172,13 +172,13 @@ public class AbstractExecutor implements Executor {
         else {
             Map.Entry<ConstrainedTerm, ConstrainedTerm> circ = searchCircularity(formula.getKey(), G);
             if (circ != null) {
-                AbstractGraphNode source = graph.getNode(formula.getKey(), formula.getValue());
+                AbstractGraphNode sourceNode = graph.getNode(formula.getKey(), formula.getValue());
                 AbstractGraphNode circNode = new AbstractGraphNode(circ.getKey(), formula.getValue());
 
                 if (graph.hasNode(circNode)) {
                     List<AbstractGraphNode> circDerivatives = graph.getSuccesorsByEdgeType(circNode, EdgeType.SYMBOLIC_STEP);
                     for (AbstractGraphNode circDerivative : circDerivatives) {
-                        graph.addEdge(new AbstractGraphEdge(source, circDerivative, EdgeType.CIRCULARITY));
+                        graph.addEdge(new AbstractGraphEdge(sourceNode, circDerivative, EdgeType.CIRCULARITY));
                     }
                 }
                 else {
@@ -195,7 +195,7 @@ public class AbstractExecutor implements Executor {
                         graph.addEdge(new AbstractGraphEdge(circNode, targetNode, EdgeType.SYMBOLIC_STEP));
 
                         // add symb step from formula to circ der
-                        graph.addEdge(new AbstractGraphEdge(source, targetNode, EdgeType.CIRCULARITY));
+                        graph.addEdge(new AbstractGraphEdge(sourceNode, targetNode, EdgeType.CIRCULARITY));
 
                         // call construct over circ derivatives
                         graph = construct(new AbstractMap.SimpleEntry<>(circDerivative, formula.getValue()), G, pattern, graph);
