@@ -13,7 +13,7 @@ import com.google.inject.Module;
 public class AbstractBackendKModule implements KModule {
     @Override
     public List<Module> getKDocModules() {
-        return null;
+        return ImmutableList.of();
     }
 
     @Override
