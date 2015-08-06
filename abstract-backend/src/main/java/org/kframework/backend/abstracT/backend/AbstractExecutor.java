@@ -99,11 +99,8 @@ public class AbstractExecutor implements Executor {
         return internalSearch(bound, depth, searchType, pattern, cfg, compilationInfo, computeGraph);
     }
 
-    // this method is 'hacky' since it returns the first formula as the main formula
-    // TODO: fix the way we identify the main formula
     private Map.Entry<ConstrainedTerm, ConstrainedTerm> getMainFormula(Goals goals) {
-        RLGoal RLGoal = goals.getRlGoals().get(0);
-        return getConstrainedFormula(RLGoal);
+        return getConstrainedFormula(goals.getMainGoal());
     }
 
 
