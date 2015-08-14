@@ -49,4 +49,8 @@ public class AbstractGraphNode {
     public String toString() {
         return lhs + "\n=>\n" + rhs;
     }
+
+    public NodeStatus getStatus() {
+        return status;
+    }
 }

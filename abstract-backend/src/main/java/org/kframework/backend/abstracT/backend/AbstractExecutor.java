@@ -2,11 +2,13 @@ package org.kframework.backend.abstracT.backend;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import edu.uci.ics.jung.graph.DirectedSparseGraph;
 import org.kframework.backend.abstracT.graph.AbstractGraph;
 import org.kframework.backend.abstracT.graph.AbstractGraphEdge;
 import org.kframework.backend.abstracT.graph.AbstractGraphNode;
 import org.kframework.backend.abstracT.graph.EdgeType;
 import org.kframework.backend.abstracT.graph.NodeStatus;
+import org.kframework.backend.abstracT.logger.Logger;
 import org.kframework.backend.abstracT.rewriter.AbstractRewriter;
 import org.kframework.backend.abstracT.xml.input.RLGoal;
 import org.kframework.backend.abstracT.xml.input.Goals;
@@ -43,7 +45,10 @@ import org.kframework.krun.tools.Executor;
 import org.kframework.parser.ProgramLoader;
 import org.kframework.utils.Stopwatch;
 import org.kframework.utils.errorsystem.KEMException;
+import org.kframework.utils.file.FileUtil;
+import sun.rmi.runtime.Log;
 
+import java.io.File;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -67,8 +72,6 @@ public class AbstractExecutor implements Executor {
     private final Context context;
     private final KRunState.Counter counter;
     private final Stopwatch sw;
-
-
     private final AbstractOptions abstractOptions;
     private final Provider<ProgramLoader> programLoader;
 
@@ -89,14 +92,30 @@ public class AbstractExecutor implements Executor {
 
     @Override
     public SearchResults search(Integer bound, Integer depth, SearchType searchType, Rule pattern, Term cfg, RuleCompilerSteps compilationInfo, boolean computeGraph) throws KRunExecutionException {
+
+        // main tasks
         Goals goals = new Goals(abstractOptions.goals, programLoader, getContext());
         Map.Entry<ConstrainedTerm, ConstrainedTerm> mainGoal = getMainFormula(goals);
         List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G = getListOfGoals(goals);
         AbstractGraph abstractGraph = getGraph(mainGoal, G, pattern);
         abstractGraph = annotateAbstractGraph(abstractGraph, pattern);
-        abstractGraph.displayGraph();
-        new Scanner(System.in).nextLine();
-        return internalSearch(bound, depth, searchType, pattern, cfg, compilationInfo, computeGraph);
+
+        String status = abstractGraph.isValid() ? "Proof succeeded!" : "Proof failed!";
+        Logger.putLine(status);
+
+        // options
+        if (abstractOptions.window) {
+            abstractGraph.displayGraph(status + " Check " + abstractOptions.outputLog + " for details.");
+            new Scanner(System.in).nextLine();
+        }
+
+        if (abstractOptions.exportFile != null) {
+            abstractGraph.saveGraphAsImage(abstractOptions.exportFile);
+        }
+
+        FileUtil.save(new File(abstractOptions.outputLog), Logger.getStringBuilder().toString());
+        return new SearchResults(new ArrayList<>(), new DirectedSparseGraph<>());
+//        return internalSearch(bound, depth, searchType, pattern, cfg, compilationInfo, computeGraph);
     }
 
     private Map.Entry<ConstrainedTerm, ConstrainedTerm> getMainFormula(Goals goals) {
@@ -150,7 +169,7 @@ public class AbstractExecutor implements Executor {
             AbstractGraphNode child = new AbstractGraphNode(derivative, main.getValue());
             graph.addNode(child);
             graph.addEdge(new AbstractGraphEdge(root, child, EdgeType.SYMBOLIC_STEP));
-            graph = construct(new AbstractMap.SimpleEntry<>(derivative, main.getValue()), G, pattern, graph);
+            graph = construct(new AbstractMap.SimpleEntry<>(derivative, main.getValue()), G, pattern, graph, abstractOptions.maxConstructDepth);
         }
         return graph;
     }
@@ -160,10 +179,20 @@ public class AbstractExecutor implements Executor {
             Map.Entry<ConstrainedTerm, ConstrainedTerm> formula,
             List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G,
             Rule pattern,
-            AbstractGraph graph
+            AbstractGraph graph,
+            int timeout
             ) throws KRunExecutionException {
 
+        // finish if timeout <= 0
+        if (timeout <= 0) {
+            Logger.failed("Construct depth max size reached. Quitting.");
+            return  graph;
+        };
+
+//        Logger.putLine("Called construct for " + formula);
+
         if (formula.getKey().implies(formula.getValue())) {
+            Logger.putLines("Implication succeeded:", formula.getKey().toString(), "->", formula.getValue().toString());
             return graph;
         }
         else {
@@ -171,6 +200,7 @@ public class AbstractExecutor implements Executor {
             if (circ != null) {
                 AbstractGraphNode sourceNode = graph.getNode(formula.getKey(), formula.getValue());
                 AbstractGraphNode circNode = new AbstractGraphNode(circ.getKey(), formula.getValue());
+                Logger.putLine("Found circularity: " + circNode.toString());
 
                 if (graph.hasNode(circNode)) {
                     List<AbstractGraphNode> circDerivatives = graph.getSuccesorsByEdgeType(circNode, EdgeType.SYMBOLIC_STEP);
@@ -195,7 +225,7 @@ public class AbstractExecutor implements Executor {
                         graph.addEdge(new AbstractGraphEdge(sourceNode, targetNode, EdgeType.CIRCULARITY));
 
                         // call construct over circ derivatives
-                        graph = construct(new AbstractMap.SimpleEntry<>(circDerivative, formula.getValue()), G, pattern, graph);
+                        graph = construct(new AbstractMap.SimpleEntry<>(circDerivative, formula.getValue()), G, pattern, graph, timeout - 1);
                     }
                 }
             }
@@ -203,13 +233,19 @@ public class AbstractExecutor implements Executor {
                 AbstractGraphNode toExpand = new AbstractGraphNode(formula.getKey(), formula.getValue());
                 AbstractGraph graphToExpand = AbstractGraph.empty();
                 graphToExpand.addNode(toExpand);
-                AbstractGraph symbolicGraph = expand(graphToExpand, G, pattern, 10);
+                Logger.putLine("Expanding " + toExpand);
+                AbstractGraph symbolicGraph = expand(graphToExpand, G, pattern, abstractOptions.maxExpandDepth);
                 graph.addSubgraph(symbolicGraph);
 
                 if (!symbolicGraph.isSingletonGraph(toExpand)) {
                     List<AbstractGraphNode> frontier = symbolicGraph.getFrontier();
                     for (AbstractGraphNode toProcess : frontier) {
-                        graph = construct(new AbstractMap.SimpleEntry<ConstrainedTerm, ConstrainedTerm>(toProcess.getLhs(), formula.getValue()), G, pattern, graph);
+                        graph = construct(new AbstractMap.SimpleEntry<ConstrainedTerm, ConstrainedTerm>(toProcess.getLhs(), formula.getValue()), G, pattern, graph, timeout - 1);
+                    }
+                }
+                else {
+                    if (!formula.getKey().implies(formula.getValue())) {
+                        Logger.failed("Failed to prove implication, find circularity or derive goal: " + formula);
                     }
                 }
             }
@@ -223,6 +259,7 @@ public class AbstractExecutor implements Executor {
             List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G,
             Rule pattern,
             int maxDepth) throws KRunExecutionException {
+
 
         while (maxDepth > 0) {
             List<AbstractGraphNode> frontier = graph.getFrontier();
@@ -239,6 +276,12 @@ public class AbstractExecutor implements Executor {
                 }
             }
             if (toProcess == null) {
+                if (maxDepth - 1 > 0) {
+                    Logger.putLine("Expand finished naturally.");
+                }
+                else {
+                    Logger.failed("Expand depth max size reached. Quitting.");
+                }
                 break;
             } else {
                 for (ConstrainedTerm d : derivatives) {

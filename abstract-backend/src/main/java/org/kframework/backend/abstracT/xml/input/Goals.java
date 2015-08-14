@@ -3,6 +3,7 @@ package org.kframework.backend.abstracT.xml.input;
 import com.google.inject.Provider;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.math3.util.Pair;
+import org.kframework.backend.abstracT.logger.Logger;
 import org.kframework.compile.utils.MetaK;
 import org.kframework.kil.Cell;
 import org.kframework.kil.Sort;
@@ -76,6 +77,8 @@ public class Goals {
         } catch (IOException e) {
             throw KEMException.criticalError(e.getLocalizedMessage());
         }
+
+        Logger.putLine("Loaded: " + this.getRlGoals().size() + " goals.");
     }
 
     private RLGoal load(Element rlNode, Provider<ProgramLoader> programLoader, Context context) {

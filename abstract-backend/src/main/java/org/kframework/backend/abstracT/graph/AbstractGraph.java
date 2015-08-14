@@ -5,9 +5,15 @@ import edu.uci.ics.jung.graph.DirectedSparseGraph;
 import edu.uci.ics.jung.visualization.VisualizationViewer;
 import edu.uci.ics.jung.visualization.decorators.ToStringLabeller;
 import org.kframework.backend.java.kil.ConstrainedTerm;
+import org.kframework.utils.errorsystem.KEMException;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.xml.soap.Node;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -229,12 +235,13 @@ public class AbstractGraph {
     /**
      * Prepares a {@link JFrame} and displays the current graph on it.
      */
-    public void displayGraph() {
+    public void displayGraph(String title) {
         VisualizationViewer visualizationViewer = new VisualizationViewer(new FRLayout(getJungGraph()), new Dimension(1024, 720));
         visualizationViewer.setVertexToolTipTransformer(new ToStringLabeller<String>());
         JFrame frame = new JFrame();
         frame.getContentPane().add(visualizationViewer);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setTitle(title);
         frame.pack();
         frame.setVisible(true);
     }
@@ -267,5 +274,41 @@ public class AbstractGraph {
             }
         }
         return predecessors;
+    }
+
+    public boolean isValid() {
+        for (AbstractGraphNode node : abstractNodes) {
+            if (node.getStatus() != NodeStatus.VALID) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public void saveGraphAsImage(String exportFile) {
+        VisualizationViewer visualizationViewer = new VisualizationViewer(new FRLayout(getJungGraph()), new Dimension(1024, 720));
+        visualizationViewer.setVertexToolTipTransformer(new ToStringLabeller<String>());
+        JFrame frame = new JFrame();
+        frame.getContentPane().add(visualizationViewer);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.pack();
+        frame.setVisible(true);
+
+        try {
+            Thread.sleep(20);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+
+        BufferedImage bufferedImage = new BufferedImage(frame.getWidth(), frame.getHeight(), BufferedImage.TYPE_3BYTE_BGR);
+        Graphics2D graphics2D = bufferedImage.createGraphics();
+        frame.paint(graphics2D);
+        try {
+            ImageIO.write(bufferedImage, "jpg", new File(exportFile));
+        } catch (IOException e) {
+            throw KEMException.criticalError("Cannot save graph as image: " + e.getLocalizedMessage());
+        }
+
     }
 }
