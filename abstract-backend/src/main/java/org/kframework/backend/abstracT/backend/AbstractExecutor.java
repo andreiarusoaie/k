@@ -10,8 +10,8 @@ import org.kframework.backend.abstracT.graph.EdgeType;
 import org.kframework.backend.abstracT.graph.NodeStatus;
 import org.kframework.backend.abstracT.logger.Logger;
 import org.kframework.backend.abstracT.rewriter.AbstractRewriter;
-import org.kframework.backend.abstracT.xml.input.RLGoal;
 import org.kframework.backend.abstracT.xml.input.Goals;
+import org.kframework.backend.abstracT.xml.input.RLGoal;
 import org.kframework.backend.java.kil.ConstrainedTerm;
 import org.kframework.backend.java.kil.Definition;
 import org.kframework.backend.java.kil.GlobalContext;
@@ -46,7 +46,6 @@ import org.kframework.parser.ProgramLoader;
 import org.kframework.utils.Stopwatch;
 import org.kframework.utils.errorsystem.KEMException;
 import org.kframework.utils.file.FileUtil;
-import sun.rmi.runtime.Log;
 
 import java.io.File;
 import java.util.AbstractMap;
@@ -97,9 +96,12 @@ public class AbstractExecutor implements Executor {
         Goals goals = new Goals(abstractOptions.goals, programLoader, getContext());
         Map.Entry<ConstrainedTerm, ConstrainedTerm> mainGoal = getMainFormula(goals);
         List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G = getListOfGoals(goals);
+
+        // verification
         AbstractGraph abstractGraph = getGraph(mainGoal, G, pattern);
         abstractGraph = annotateAbstractGraph(abstractGraph, pattern);
 
+        // log status
         String status = abstractGraph.isValid() ? "Proof succeeded!" : "Proof failed!";
         Logger.putLine(status);
 
@@ -189,7 +191,6 @@ public class AbstractExecutor implements Executor {
             return  graph;
         };
 
-//        Logger.putLine("Called construct for " + formula);
 
         if (formula.getKey().implies(formula.getValue())) {
             Logger.putLines("Implication succeeded:", formula.getKey().toString(), "->", formula.getValue().toString());
@@ -280,7 +281,7 @@ public class AbstractExecutor implements Executor {
                     Logger.putLine("Expand finished naturally.");
                 }
                 else {
-                    Logger.failed("Expand depth max size reached. Quitting.");
+                    Logger.failed("Expand depth max size reached. Quit.");
                 }
                 break;
             } else {
@@ -298,6 +299,68 @@ public class AbstractExecutor implements Executor {
 
 
 
+//    private AbstractGraph getGraphFromSpec(Map.Entry<Map.Entry<ConstrainedTerm, ConstrainedTerm>, List<Action>> main,
+//                                           List<Map.Entry<Map.Entry<ConstrainedTerm, ConstrainedTerm>, List<Action>>> G,
+//                                           Rule pattern) throws KRunExecutionException {
+//
+//        // compute the first set of derivatives and then process each of them
+//        List<ConstrainedTerm> derivatives = AbstractRewriter.oneSearchStep(main.getKey().getKey(), pattern, getGlobalContext(), getSymbolicRewriter(), getContext(), getTransformer());
+//
+//        AbstractGraph graph = AbstractGraph.empty();
+//        AbstractGraphNode root = new AbstractGraphNode(main.getKey().getKey(), main.getKey().getValue());
+//        graph.addNode(root);
+//        for (ConstrainedTerm derivative : derivatives) {
+//            AbstractGraphNode child = new AbstractGraphNode(derivative, main.getKey().getValue());
+//            graph.addNode(child);
+//            graph.addEdge(new AbstractGraphEdge(root, child, EdgeType.SYMBOLIC_STEP));
+//            graph = construct(new AbstractMap.SimpleEntry<>(derivative, main.getKey().getValue()), G, pattern, graph, abstractOptions.maxConstructDepth);
+//        }
+//        return graph;
+//
+//
+//        return null;
+//    }
+
+
+//    private AbstractGraph expandUntilCircOrNotDerivable(AbstractGraph graph, ConstrainedTerm circ, Rule pattern, int maxDepth) throws KRunExecutionException {
+//
+//        while (maxDepth > 0) {
+//            List<AbstractGraphNode> frontier = graph.getFrontier();
+//            AbstractGraphNode toProcess = null;
+//            List<ConstrainedTerm> derivatives = null;
+//            for (AbstractGraphNode abstractGraphNode : frontier) {
+//                List<ConstrainedTerm> cDerivatives = AbstractRewriter.oneSearchStep(abstractGraphNode.getLhs(), pattern, getGlobalContext(), getSymbolicRewriter(), getContext(), getTransformer());
+//                if (!abstractGraphNode.getLhs().implies(abstractGraphNode.getRhs()) &&
+//                        searchCircularity(abstractGraphNode.getLhs(), G) == null &&
+//                        !cDerivatives.isEmpty()) {
+//                    toProcess = abstractGraphNode;
+//                    derivatives = cDerivatives;
+//                    break;
+//                }
+//            }
+//            if (toProcess == null) {
+//                if (maxDepth - 1 > 0) {
+//                    Logger.putLine("Expand finished naturally.");
+//                }
+//                else {
+//                    Logger.failed("Expand depth max size reached. Quit.");
+//                }
+//                break;
+//            } else {
+//                for (ConstrainedTerm d : derivatives) {
+//                    AbstractGraphNode successor = new AbstractGraphNode(d, toProcess.getRhs());
+//                    graph.addNode(successor);
+//                    graph.addEdge(new AbstractGraphEdge(toProcess, successor, EdgeType.SYMBOLIC_STEP));
+//                }
+//            }
+//            maxDepth--;
+//
+//        }
+//
+//        return null;
+//    }
+
+    
 
     private Map.Entry<ConstrainedTerm,ConstrainedTerm> searchCircularity(ConstrainedTerm phi, List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G) {
         for (Map.Entry<ConstrainedTerm, ConstrainedTerm> c : G) {

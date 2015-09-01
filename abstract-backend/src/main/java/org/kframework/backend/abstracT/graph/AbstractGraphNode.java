@@ -1,6 +1,5 @@
 package org.kframework.backend.abstracT.graph;
 
-import org.apache.commons.collections15.OrderedMap;
 import org.kframework.backend.java.kil.ConstrainedTerm;
 
 /**

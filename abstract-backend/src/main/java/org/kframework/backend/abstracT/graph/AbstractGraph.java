@@ -9,7 +9,6 @@ import org.kframework.utils.errorsystem.KEMException;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.xml.soap.Node;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
