@@ -1,11 +1,10 @@
 package org.kframework.backend.abstracT.backend;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
 import org.kframework.main.KModule;
 
 import java.util.List;
-
-import com.google.inject.Module;
 
 /**
  * Created by Andrei on 7/12/2015.

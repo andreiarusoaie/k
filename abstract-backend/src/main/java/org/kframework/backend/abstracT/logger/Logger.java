@@ -1,7 +1,6 @@
 package org.kframework.backend.abstracT.logger;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 /**
  * Created by andrei on 8/6/15.
@@ -41,7 +40,6 @@ public class Logger {
         stringBuilder.append("*****  End  ******\n");
         stringBuilder.append("\n");
     }
-
 
     public static StringBuilder getStringBuilder() {
         return stringBuilder;

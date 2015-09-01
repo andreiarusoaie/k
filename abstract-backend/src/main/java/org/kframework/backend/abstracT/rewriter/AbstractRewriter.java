@@ -45,7 +45,7 @@ public class AbstractRewriter {
         // empty claims
         List<org.kframework.backend.java.kil.Rule> claims = Collections.emptyList();
 
-        // custom parameters for search; -1 for bound means that there is bound limit
+        // custom parameters for search; -1 for bound means that there is no bound limit
         Integer bound = -1;
         Integer depth = 1;
         // do not ask for the execution graph

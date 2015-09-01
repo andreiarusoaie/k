@@ -14,7 +14,6 @@ import org.kframework.backend.java.compile.GenerateKRewriteMachineInstructions;
 import org.kframework.backend.java.compile.JavaBackendCell2DataStructure;
 import org.kframework.backend.java.compile.KORECompilationSteps;
 import org.kframework.backend.java.indexing.RuleIndex;
-import org.kframework.backend.java.symbolic.JavaBackendKModule;
 import org.kframework.backend.java.symbolic.JavaSymbolicBackend;
 import org.kframework.backend.java.symbolic.KILtoBackendJavaKILTransformer;
 import org.kframework.compile.FlattenModules;
