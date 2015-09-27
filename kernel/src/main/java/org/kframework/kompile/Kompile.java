@@ -21,6 +21,7 @@ import org.kframework.definition.Sentence;
 import org.kframework.kore.K;
 import org.kframework.kore.KApply;
 import org.kframework.kore.Sort;
+import org.kframework.kore.compile.AddImplicitComputationCell;
 import org.kframework.kore.compile.ConcretizeCells;
 import org.kframework.kore.compile.GenerateSentencesFromConfigDecl;
 import org.kframework.kore.compile.GenerateSortPredicateSyntax;
@@ -28,10 +29,11 @@ import org.kframework.kore.compile.ResolveAnonVar;
 import org.kframework.kore.compile.ResolveContexts;
 import org.kframework.kore.compile.ResolveFreshConstants;
 import org.kframework.kore.compile.ResolveHeatCoolAttribute;
+import org.kframework.kore.compile.ResolveIOStreams;
 import org.kframework.kore.compile.ResolveSemanticCasts;
 import org.kframework.kore.compile.ResolveStrict;
 import org.kframework.kore.compile.SortInfo;
-import org.kframework.parser.Term;
+import org.kframework.main.GlobalOptions;
 import org.kframework.parser.TreeNodesToKORE;
 import org.kframework.parser.concrete2kore.ParseCache;
 import org.kframework.parser.concrete2kore.ParseCache.ParsedSentence;
@@ -46,7 +48,6 @@ import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.errorsystem.ParseFailedException;
 import org.kframework.utils.file.FileUtil;
 import org.kframework.utils.file.JarInfo;
-import scala.Function1;
 import scala.Tuple2;
 import scala.collection.immutable.Set;
 import scala.util.Either;
@@ -58,7 +59,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -91,13 +94,7 @@ public class Kompile {
     private final AtomicInteger cachedBubbles = new AtomicInteger(0);
 
     public Kompile(KompileOptions kompileOptions, FileUtil files, KExceptionManager kem, Stopwatch sw, boolean cacheParses) {
-        this.files = files;
-        this.kem = kem;
-        this.kompileOptions = kompileOptions;
-        this.parser = new ParserUtils(files, kem, kompileOptions.global);
-        this.cacheParses = cacheParses;
-        this.loader = new BinaryLoader(kem);
-        this.sw = sw;
+        this(kompileOptions, kompileOptions.global, files, kem, sw, cacheParses);
     }
 
     public Kompile(KompileOptions kompileOptions, FileUtil files, KExceptionManager kem, boolean cacheParses) {
@@ -113,6 +110,21 @@ public class Kompile {
         this(kompileOptions, files, kem, sw, true);
     }
 
+    public Kompile(KompileOptions kompileOptions, GlobalOptions global, FileUtil files, KExceptionManager kem, Stopwatch sw, boolean cacheParses) {
+        this.files = files;
+        this.kem = kem;
+        this.kompileOptions = kompileOptions;
+        this.parser = new ParserUtils(files, kem, global);
+        this.cacheParses = cacheParses;
+        this.loader = new BinaryLoader(kem);
+        this.sw = sw;
+    }
+
+
+    public CompiledDefinition run(File definitionFile, String mainModuleName, String mainProgramsModuleName, Sort programStartSymbol) {
+        return run(definitionFile, mainModuleName, mainProgramsModuleName, programStartSymbol, defaultSteps());
+    }
+
     /**
      * Executes the Kompile tool. This tool accesses a
      *
@@ -122,28 +134,9 @@ public class Kompile {
      * @param programStartSymbol
      * @return
      */
-    public CompiledDefinition run(File definitionFile, String mainModuleName, String mainProgramsModuleName, Sort programStartSymbol) {
+    public CompiledDefinition run(File definitionFile, String mainModuleName, String mainProgramsModuleName, Sort programStartSymbol, Function<Definition, Definition> pipeline) {
         Definition parsedDef = parseDefinition(definitionFile, mainModuleName, mainProgramsModuleName, true);
         sw.printIntermediate("Parse definition [" + parsedBubbles.get() + "/" + (parsedBubbles.get() + cachedBubbles.get()) + " rules]");
-
-        DefinitionTransformer resolveStrict = DefinitionTransformer.from(new ResolveStrict()::resolve, "resolving strict and seqstrict attributes");
-        DefinitionTransformer resolveContexts = DefinitionTransformer.from(new ResolveContexts()::resolve, "resolving context sentences");
-        DefinitionTransformer resolveHeatCoolAttribute = DefinitionTransformer.fromSentenceTransformer(new ResolveHeatCoolAttribute()::resolve, "resolving heat and cool attributes");
-        DefinitionTransformer resolveAnonVars = DefinitionTransformer.fromSentenceTransformer(new ResolveAnonVar()::resolve, "resolving \"_\" vars");
-        DefinitionTransformer resolveSemanticCasts =
-                DefinitionTransformer.fromSentenceTransformer(new ResolveSemanticCasts()::resolve, "resolving semantic casts");
-        DefinitionTransformer generateSortPredicateSyntax = DefinitionTransformer.from(new GenerateSortPredicateSyntax()::gen, "adding sort predicate productions");
-
-        Function1<Definition, Definition> pipeline = resolveStrict
-                .andThen(resolveAnonVars)
-                .andThen(resolveContexts)
-                .andThen(resolveHeatCoolAttribute)
-                .andThen(resolveSemanticCasts)
-                .andThen(generateSortPredicateSyntax)
-                .andThen(func(this::resolveFreshConstants))
-                .andThen(func(this::concretizeTransformer))
-                .andThen(func(this::addSemanticsModule))
-                .andThen(func(this::addProgramModule));
 
         Definition kompiledDefinition = pipeline.apply(parsedDef);
         sw.printIntermediate("Apply compile pipeline");
@@ -151,6 +144,34 @@ public class Kompile {
         ConfigurationInfoFromModule configInfo = new ConfigurationInfoFromModule(kompiledDefinition.mainModule());
 
         return new CompiledDefinition(kompileOptions, parsedDef, kompiledDefinition, programStartSymbol, configInfo.getDefaultCell(configInfo.topCell()).klabel());
+    }
+
+    public Function<Definition, Definition> defaultSteps() {
+        DefinitionTransformer resolveStrict = DefinitionTransformer.from(new ResolveStrict(kompileOptions)::resolve, "resolving strict and seqstrict attributes");
+        DefinitionTransformer resolveContexts = DefinitionTransformer.from(new ResolveContexts(kompileOptions)::resolve, "resolving context sentences");
+        DefinitionTransformer resolveHeatCoolAttribute = DefinitionTransformer.fromSentenceTransformer(new ResolveHeatCoolAttribute()::resolve, "resolving heat and cool attributes");
+        DefinitionTransformer resolveAnonVars = DefinitionTransformer.fromSentenceTransformer(new ResolveAnonVar()::resolve, "resolving \"_\" vars");
+        DefinitionTransformer resolveSemanticCasts =
+                DefinitionTransformer.fromSentenceTransformer(new ResolveSemanticCasts()::resolve, "resolving semantic casts");
+        DefinitionTransformer generateSortPredicateSyntax = DefinitionTransformer.from(new GenerateSortPredicateSyntax()::gen, "adding sort predicate productions");
+
+        return def -> func(this::resolveIOStreams)
+                .andThen(resolveStrict)
+                .andThen(resolveAnonVars)
+                .andThen(resolveContexts)
+                .andThen(resolveHeatCoolAttribute)
+                .andThen(resolveSemanticCasts)
+                .andThen(generateSortPredicateSyntax)
+                .andThen(func(this::resolveFreshConstants))
+                .andThen(func(this::addImplicitComputationCellTransformer))
+                .andThen(func(this::concretizeTransformer))
+                .andThen(func(this::addSemanticsModule))
+                .andThen(func(this::addProgramModule))
+                .apply(def);
+    }
+
+    public Definition resolveIOStreams(Definition d) {
+        return DefinitionTransformer.from(new ResolveIOStreams(d)::resolve, "resolving io streams").apply(d);
     }
 
     public Definition addSemanticsModule(Definition d) {
@@ -185,6 +206,15 @@ public class Kompile {
         return Definition(d.mainModule(), programsModule, immutable(allModules));
     }
 
+    private Definition addImplicitComputationCellTransformer(Definition input) {
+        ConfigurationInfoFromModule configInfo = new ConfigurationInfoFromModule(input.mainModule());
+        LabelInfo labelInfo = new LabelInfoFromModule(input.mainModule());
+        SortInfo sortInfo = SortInfo.fromModule(input.mainModule());
+        return DefinitionTransformer.fromSentenceTransformer(
+                new AddImplicitComputationCell(configInfo, labelInfo),
+                "concretizing configuration").apply(input);
+    }
+
     private Definition concretizeTransformer(Definition input) {
         ConfigurationInfoFromModule configInfo = new ConfigurationInfoFromModule(input.mainModule());
         LabelInfo labelInfo = new LabelInfoFromModule(input.mainModule());
@@ -200,6 +230,49 @@ public class Kompile {
         LabelInfo labelInfo = new LabelInfoFromModule(input.mainModule());
         SortInfo sortInfo = SortInfo.fromModule(input.mainModule());
         return new ConcretizeCells(configInfo, labelInfo, sortInfo, kem).concretize(s);
+    }
+
+    public Module parseModule(CompiledDefinition definition, File definitionFile, boolean dropQuote) {
+        java.util.Set<Module> modules = parser.loadModules(
+                mutable(definition.getParsedDefinition().modules()),
+                "require " + StringUtil.enquoteCString(definitionFile.getPath()),
+                Source.apply(definitionFile.getPath()),
+                definitionFile.getParentFile(),
+                Lists.newArrayList(BUILTIN_DIRECTORY),
+                dropQuote);
+
+        if (modules.size() != 1) {
+            throw KEMException.compilerError("Expected to find a file with 1 module: found " + modules.size() + " instead.");
+        }
+
+        Module module = modules.iterator().next();
+
+        errors = java.util.Collections.synchronizedSet(Sets.newHashSet());
+        caches = new HashMap<>();
+
+        if (cacheParses) {
+            try {
+                caches = loader.load(Map.class, files.resolveKompiled("cache.bin"));
+            } catch (FileNotFoundException e) {
+            } catch (IOException | ClassNotFoundException e) {
+                kem.registerInternalHiddenWarning("Invalidating serialized cache due to corruption.", e);
+            }
+        }
+
+        gen = new RuleGrammarGenerator(definition.getParsedDefinition(), kompileOptions.strict());
+        Module modWithConfig = resolveConfig(module, definition.getParsedDefinition());
+
+        gen = new RuleGrammarGenerator(definition.getParsedDefinition(), kompileOptions.strict());
+        Module parsedMod = resolveBubbles(modWithConfig);
+
+        if(cacheParses) {
+            loader.saveOrDie(files.resolveKompiled("cache.bin"), caches);
+        }
+        if (!errors.isEmpty()) {
+            kem.addAllKException(errors.stream().map(e -> e.getKException()).collect(Collectors.toList()));
+            throw KEMException.compilerError("Had " + errors.size() + " parsing errors.");
+        }
+        return parsedMod;
     }
 
     public Definition parseDefinition(File definitionFile, String mainModuleName, String mainProgramsModule, boolean dropQuote) {
@@ -221,7 +294,9 @@ public class Kompile {
         if (!hasConfigDecl) {
             definitionWithConfigBubble = DefinitionTransformer.from(mod -> {
                 if (mod == definition.mainModule()) {
-                    return Module(mod.name(), (Set<Module>) mod.imports().$plus(definition.getModule("DEFAULT-CONFIGURATION").get()), mod.localSentences(), mod.att());
+                    java.util.Set<Module> imports = mutable(mod.imports());
+                    imports.add(definition.getModule("DEFAULT-CONFIGURATION").get());
+                    return Module(mod.name(), (Set<Module>) immutable(imports), mod.localSentences(), mod.att());
                 }
                 return mod;
             }, "adding default configuration").apply(definition);
@@ -336,7 +411,7 @@ public class Kompile {
                 stream((Set<Sentence>) module.localSentences().$bar(ruleSet).$bar(contextSet)).filter(b -> !(b instanceof Bubble)).collect(Collections.toSet()), module.att());
     }
 
-    public Rule compileRule(CompiledDefinition compiledDef, String contents, Source source) {
+    public Rule parseRule(CompiledDefinition compiledDef, String contents, Source source) {
         errors = java.util.Collections.synchronizedSet(Sets.newHashSet());
         gen = new RuleGrammarGenerator(compiledDef.kompiledDefinition, kompileOptions.strict());
         java.util.Set<K> res = performParse(new HashMap<>(), gen.getCombinedGrammar(gen.getRuleGrammar(compiledDef.executionModule())),
@@ -345,11 +420,19 @@ public class Kompile {
         if (!errors.isEmpty()) {
             throw errors.iterator().next();
         }
-        Rule parsed = upRule(res.iterator().next());
+        return upRule(res.iterator().next());
+    }
+
+    public Rule compileRule(CompiledDefinition compiledDef, Rule parsedRule) {
         return (Rule) func(new ResolveAnonVar()::resolve)
                 .andThen(func(new ResolveSemanticCasts()::resolve))
                 .andThen(func(s -> concretizeSentence(s, compiledDef.kompiledDefinition)))
-                .apply(parsed);
+                .apply(parsedRule);
+    }
+
+    public Rule parseAndCompileRule(CompiledDefinition compiledDef, String contents, Source source, Optional<Rule> parsedRule) {
+        Rule parsed = parsedRule.orElse(parseRule(compiledDef, contents, source));
+        return compileRule(compiledDef, parsed);
     }
 
     private Rule upRule(K contents) {

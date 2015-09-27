@@ -3,7 +3,7 @@ package org.kframework.backend.ocaml;
 
 import com.google.inject.Inject;
 import org.apache.commons.io.FileUtils;
-import org.kframework.Rewriter;
+import org.kframework.rewriter.Rewriter;
 import org.kframework.attributes.Source;
 import org.kframework.definition.Rule;
 import org.kframework.kompile.CompiledDefinition;
@@ -51,7 +51,7 @@ public class OcamlCompileExecutionMode implements ExecutionMode<Void> {
     @Override
     public Void execute(K k, Rewriter rewriter, CompiledDefinition compiledDefinition) {
         if (options.exitCodePattern != null) {
-            Rule pattern = KRun.pattern(files, kem, options.exitCodePattern, options, compiledDefinition, Source.apply("<command line: --exit-code>"));
+            Rule pattern = KRun.compilePattern(files, kem, options.exitCodePattern, options, compiledDefinition, Source.apply("<command line: --exit-code>"));
 
             String ocaml = converter.ocamlCompile(k, pattern, ocamlOptions.dumpExitCode);
             files.saveToTemp("pgm.ml", ocaml);

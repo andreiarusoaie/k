@@ -3,6 +3,8 @@ package org.kframework.kore.compile;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.kframework.builtin.KLabels;
+import org.kframework.builtin.Labels;
 import org.kframework.builtin.Sorts;
 import org.kframework.compile.ConfigurationInfo;
 import org.kframework.compile.LabelInfo;
@@ -44,8 +46,8 @@ public class SortCellsTest {
 
     @Test
     public void testSimpleSplitting() {
-        K term = KRewrite(cell("<t>",cell("<env>"),KVariable("X"), KVariable("Y", Att().add(Attribute.SORT_KEY, "OptCell"))),KVariable("X"));
-        K expected = KRewrite(cell("<t>",KVariable("X"),cell("<env>"), KVariable("Y", Att().add(Attribute.SORT_KEY, "OptCell"))),KVariable("X"));
+        K term = KRewrite(cell("<t>", cell("<env>"), KVariable("X"), KVariable("Y", Att().add(Attribute.SORT_KEY, "OptCell"))), KVariable("X"));
+        K expected = KRewrite(cell("<t>", KVariable("X"), cell("<env>"), KVariable("Y", Att().add(Attribute.SORT_KEY, "OptCell"))), KVariable("X"));
         KExceptionManager kem = new KExceptionManager(new GlobalOptions());
         Assert.assertEquals(expected, new SortCells(cfgInfo, labelInfo, kem).sortCells(term));
         Assert.assertEquals(0, kem.getExceptions().size());
@@ -192,6 +194,7 @@ public class SortCellsTest {
         addLabel("TopCell", "<top>");
         addLabel("ThreadCell", "<t>");
         addLabel("ExtraCell", "<extra>");
+        addLabel("K", "restore");
     }};
     @Test
     public void testFragmentBag() {
@@ -206,6 +209,29 @@ public class SortCellsTest {
         Assert.assertEquals(0, kem.getExceptions().size());
     }
 
+    @Test
+    public void testFragmentRewrite() {
+        K term = cell("<top>",
+                    cell("<t>",KRewrite(app("restore",KVariable("Ctx")),
+                            KVariable("Result"))),
+                    KRewrite(cells(KVariable("_1"), cell("<t>",KVariable("Result"))),
+                            KVariable("Ctx")));
+        K expected = cell("<top>",
+                app("_ThreadCellBag_",
+                        cell("<t>",KRewrite(
+                                app("restore",app("<top>-fragment",KVariable("_0"),KVariable("_2"))),
+                                KVariable("Result"))),
+                        KRewrite(app("_ThreadCellBag_",KVariable("_3"),
+                                cell("<t>",KVariable("Result"))),
+                                KVariable("_0"))),
+                KRewrite(KVariable("_4"),KVariable("_2")));
+        KExceptionManager kem = new KExceptionManager(new GlobalOptions());
+        Assert.assertEquals(expected, new SortCells(bagCfgInfo, bagLabelInfo, kem).sortCells(term));
+        Assert.assertEquals(0, kem.getExceptions().size());
+    }
+
+
+
     KApply app(String name, K... ks) {
         return KApply(KLabel(name), ks);
     }
@@ -215,6 +241,6 @@ public class SortCellsTest {
     }
 
     KApply cells(K... ks) {
-        return KApply(KLabel("#cells"), ks);
+        return KApply(KLabel(KLabels.CELLS), ks);
     }
 }

@@ -3,26 +3,30 @@ package org.kframework.backend.ocaml;
 
 import com.google.inject.Inject;
 import org.apache.commons.io.FileUtils;
+import org.kframework.definition.Definition;
 import org.kframework.kompile.CompiledDefinition;
+import org.kframework.kompile.Kompile;
 import org.kframework.kompile.KompileOptions;
+import org.kframework.kore.compile.Backend;
 import org.kframework.main.GlobalOptions;
 import org.kframework.utils.BinaryLoader;
 import org.kframework.utils.errorsystem.KEMException;
 import org.kframework.utils.errorsystem.KExceptionManager;
 import org.kframework.utils.file.FileUtil;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
  * Created by dwightguth on 5/27/15.
  */
-public class OcamlBackend implements Consumer<CompiledDefinition> {
+public class OcamlBackend implements Backend {
 
     private final KExceptionManager kem;
     private final FileUtil files;
@@ -65,23 +69,24 @@ public class OcamlBackend implements Consumer<CompiledDefinition> {
                 "-safe-string", "-w", "-26-11", "constants.ml", "prelude.ml", "def.ml", "parser.mli", "parser.ml", "lexer.ml"));
             args.addAll(2, options.packages.stream().flatMap(p -> Stream.of("-package", p)).collect(Collectors.toList()));
             if (!options.genMLOnly) {
+                String ocamlfind = getOcamlFind(files);
                 if (options.ocamlopt) {
-                    args.add(0, "ocamlfind");
+                    args.add(0, ocamlfind);
                     args.add(1, "ocamlopt");
                     args.add("-inline");
                     args.add("20");
                     args.add("-nodynlink");
-                    pb.command(args).environment().put("OCAMLFIND_COMMANDS", "ocamlopt=ocamlopt.opt");
+                    pb.command(args);
                 } else {
-                    args.add(0, "ocamlfind");
+                    args.add(0, ocamlfind);
                     args.add(1, "ocamlc");
-                    pb.command(args).environment().put("OCAMLFIND_COMMANDS", "ocamlc=ocamlc.opt");
+                    pb.command(args);
                 }
-                Process ocamlopt = pb
+                Process p = pb
                         .directory(files.resolveKompiled("."))
                         .inheritIO()
                         .start();
-                exit = ocamlopt.waitFor();
+                exit = p.waitFor();
                 if (exit != 0) {
                     throw KEMException.criticalError("ocamlopt returned nonzero exit code: " + exit + "\nExamine output to see errors.");
                 }
@@ -92,5 +97,19 @@ public class OcamlBackend implements Consumer<CompiledDefinition> {
         } catch (IOException e) {
             throw KEMException.criticalError("Error starting ocamlopt process: " + e.getMessage(), e);
         }
+    }
+
+    public static String getOcamlFind(FileUtil files) {
+        String ocamlfind = "ocamlfind";
+        String env = files.getEnv().get("K_OCAML_HOME");
+        if (env != null) {
+            ocamlfind = new File(files.resolveWorkingDirectory(env), "ocamlfind").getAbsolutePath();
+        }
+        return ocamlfind;
+    }
+
+    @Override
+    public Function<Definition, Definition> steps(Kompile kompile) {
+        return kompile.defaultSteps();
     }
 }

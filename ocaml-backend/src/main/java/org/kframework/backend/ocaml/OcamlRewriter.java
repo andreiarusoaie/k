@@ -2,7 +2,7 @@
 package org.kframework.backend.ocaml;
 
 import com.google.inject.Inject;
-import org.kframework.Rewriter;
+import org.kframework.rewriter.Rewriter;
 import org.kframework.RewriterResult;
 import org.kframework.attributes.Source;
 import org.kframework.definition.Module;
@@ -13,6 +13,7 @@ import org.kframework.kore.K;
 import org.kframework.kore.KVariable;
 import org.kframework.krun.KRunOptions;
 import org.kframework.main.GlobalOptions;
+import org.kframework.rewriter.SearchType;
 import org.kframework.utils.BinaryLoader;
 import org.kframework.utils.errorsystem.KEMException;
 import org.kframework.utils.errorsystem.KExceptionManager;
@@ -90,7 +91,7 @@ public class OcamlRewriter implements Function<Module, Rewriter> {
             }
 
             @Override
-            public Tuple2<K, List<Map<KVariable, K>>> executeAndMatch(K k, Optional<Integer> depth, Rule rule) {
+            public Tuple2<K, List<? extends Map<? extends KVariable, ? extends K>>> executeAndMatch(K k, Optional<Integer> depth, Rule rule) {
                 String ocaml = converter.executeAndMatch(k, depth.orElse(-1), rule, files.resolveTemp("run.out").getAbsolutePath(), files.resolveTemp("run.subst").getAbsolutePath());
                 files.saveToTemp("pgm.ml", ocaml);
                 String output = compileAndExecOcaml("pgm.ml");
@@ -99,14 +100,19 @@ public class OcamlRewriter implements Function<Module, Rewriter> {
             }
 
             @Override
-            public List<? extends Map<? extends KVariable, ? extends K>> search(K initialConfiguration, Optional<Integer> depth, Optional<Integer> bound, Rule pattern) {
+            public List<? extends Map<? extends KVariable, ? extends K>> search(K initialConfiguration, Optional<Integer> depth, Optional<Integer> bound, Rule pattern, SearchType searchType) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public List<K> prove(List<Rule> rules) {
                 throw new UnsupportedOperationException();
             }
         };
     }
 
     private List<Map<KVariable, K>> parseOcamlSearchOutput(String output) {
-        String[] lines = output.split("\n");
+        String[] lines = output.split(System.getProperty("line.separator"));
         int count = Integer.parseInt(lines[0]);
         int line = 1;
         List<Map<KVariable, K>> list = new ArrayList<>();
@@ -211,8 +217,9 @@ public class OcamlRewriter implements Function<Module, Rewriter> {
                 "-package", "str", "-package", "unix", "-linkpkg", "-safe-string"));
         args.addAll(0, converter.options.packages.stream().flatMap(p -> Stream.of("-package", p)).collect(Collectors.toList()));
         args.addAll(options.experimental.nativeLibraries.stream().flatMap(lib -> Stream.of("-cclib", "-l" + lib)).collect(Collectors.toList()));
+        String ocamlfind = OcamlBackend.getOcamlFind(files);
         if (converter.options.ocamlopt) {
-            args.add(0, "ocamlfind");
+            args.add(0, ocamlfind);
             args.add(1, "ocamlopt");
             if (!converter.options.noLinkPrelude) {
                 args.add(files.resolveKompiled("constants.cmx").getAbsolutePath());
@@ -225,9 +232,8 @@ public class OcamlRewriter implements Function<Module, Rewriter> {
             args.add("20");
             args.add("-nodynlink");
             pb = pb.command(args);
-            pb.environment().put("OCAMLFIND_COMMANDS", "ocamlopt=ocamlopt.opt");
         } else {
-            args.add(0, "ocamlfind");
+            args.add(0, ocamlfind);
             args.add(1, "ocamlc");
             if (!converter.options.noLinkPrelude) {
                 args.add(files.resolveKompiled("constants.cmo").getAbsolutePath());
@@ -237,7 +243,6 @@ public class OcamlRewriter implements Function<Module, Rewriter> {
                     files.resolveKompiled("parser.cmo").getAbsolutePath(), files.resolveKompiled("lexer.cmo").getAbsolutePath(),
                     name));
             pb = pb.command(args);
-            pb.environment().put("OCAMLFIND_COMMANDS", "ocamlc=ocamlc.opt");
         }
         Process p = pb.directory(files.resolveTemp("."))
                 .redirectError(files.resolveTemp("compile.err"))

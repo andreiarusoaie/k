@@ -17,7 +17,7 @@ import com.google.inject.name.Named;
 import com.google.inject.spi.TypeEncounter;
 import com.google.inject.spi.TypeListener;
 import com.google.inject.throwingproviders.ThrowingProviderBinder;
-import org.kframework.Rewriter;
+import org.kframework.rewriter.Rewriter;
 import org.kframework.backend.unparser.BinaryOutputMode;
 import org.kframework.backend.unparser.ConcretizeTerm;
 import org.kframework.backend.unparser.KASTOutputMode;
@@ -212,7 +212,7 @@ public class KRunModule extends AbstractModule {
                     binder(), String.class, Prover.class);
 
             //TODO(cos): move to tiny module
-            rewriterBinder.addBinding("tiny").toInstance(m -> new org.kframework.tiny.Rewriter(m));
+            rewriterBinder.addBinding("tiny").toInstance(m -> new org.kframework.tiny.FullTinyRewriter(m));
 
             bind(Debugger.class).to(ExecutorDebugger.class);
 
