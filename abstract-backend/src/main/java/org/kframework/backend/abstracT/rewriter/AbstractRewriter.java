@@ -9,6 +9,7 @@ import org.kframework.kil.Rule;
 import org.kframework.krun.KRunExecutionException;
 import org.kframework.krun.api.SearchType;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -76,4 +77,16 @@ public class AbstractRewriter {
         return transformer.transformAndEval(pattern);
     }
 
+    /**
+     * Apply a given rule to a ConstrainedTerm
+     * @param rewriter the symbolic rewriter
+     * @param term the constrained term
+     * @param rule the rule to be applied
+     * @return the term after rule application
+     */
+    public static ConstrainedTerm applyRule(SymbolicRewriter rewriter, ConstrainedTerm term, org.kframework.backend.java.kil.Rule rule) {
+        List<org.kframework.backend.java.kil.Rule> rules = new ArrayList<>();
+        rules.add(rule);
+        return rewriter.applyRule(term, rules);
+    }
 }
