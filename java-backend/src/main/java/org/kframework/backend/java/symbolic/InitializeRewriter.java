@@ -61,7 +61,7 @@ public class InitializeRewriter implements Function<Module, Rewriter> {
     private final KRunOptions krunOptions;
     private final FileUtil files;
     private final InitializeDefinition initializeDefinition;
-    private static int NEGATIVE_VALUE = -1;
+    private static final int NEGATIVE_VALUE = -1;
 
     @Inject
     public InitializeRewriter(
@@ -105,7 +105,13 @@ public class InitializeRewriter implements Function<Module, Rewriter> {
         public final GlobalContext rewritingContext;
         private final KExceptionManager kem;
 
-        public SymbolicRewriterGlue(Module module, Definition definition, KompileOptions kompileOptions, JavaExecutionOptions javaOptions, GlobalContext rewritingContext, KExceptionManager kem) {
+        public SymbolicRewriterGlue(
+                Module module,
+                Definition definition,
+                KompileOptions kompileOptions,
+                JavaExecutionOptions javaOptions,
+                GlobalContext rewritingContext,
+                KExceptionManager kem) {
             this.rewriter = new SymbolicRewriter(definition,  kompileOptions, javaOptions, new KRunState.Counter());
             this.definition = definition;
             this.module = module;
@@ -115,9 +121,9 @@ public class InitializeRewriter implements Function<Module, Rewriter> {
 
         @Override
         public RewriterResult execute(K k, Optional<Integer> depth) {
-            KOREtoBackendKIL converter = new KOREtoBackendKIL(module, definition, TermContext.of(rewritingContext), false);
+            KOREtoBackendKIL converter = new KOREtoBackendKIL(module, definition, TermContext.of(rewritingContext), true, false);
             Term backendKil = KILtoBackendJavaKILTransformer.expandAndEvaluate(rewritingContext, kem, converter.convert(k));
-            JavaKRunState result = (JavaKRunState) rewriter.rewrite(new ConstrainedTerm(backendKil, TermContext.of(rewritingContext, backendKil, BigInteger.ZERO)), rewritingContext.getDefinition().context(), depth.orElse(-1), false);
+            JavaKRunState result = (JavaKRunState) rewriter.rewrite(new ConstrainedTerm(backendKil, TermContext.of(rewritingContext, backendKil, BigInteger.ZERO)), depth.orElse(-1));
             return new RewriterResult(result.getStepsTaken(), result.getJavaKilTerm());
         }
 
@@ -129,25 +135,25 @@ public class InitializeRewriter implements Function<Module, Rewriter> {
 
         @Override
         public List<? extends Map<? extends KVariable, ? extends K>> search(K initialConfiguration, Optional<Integer> depth, Optional<Integer> bound, Rule pattern, SearchType searchType) {
-            KOREtoBackendKIL converter = new KOREtoBackendKIL(module, definition, TermContext.of(rewritingContext), false);
+            KOREtoBackendKIL converter = new KOREtoBackendKIL(module, definition, TermContext.of(rewritingContext), true, false);
             Term javaTerm = KILtoBackendJavaKILTransformer.expandAndEvaluate(rewritingContext, kem, converter.convert(initialConfiguration));
             org.kframework.backend.java.kil.Rule javaPattern = converter.convert(Optional.empty(), pattern);
             List<Substitution<Variable, Term>> searchResults;
             searchResults = rewriter.search(javaTerm, javaPattern, bound.orElse(NEGATIVE_VALUE), depth.orElse(NEGATIVE_VALUE),
-                    searchType, TermContext.of(rewritingContext), false);
+                    searchType, TermContext.of(rewritingContext));
             return searchResults;
         }
 
 
-        public Tuple2<K, List<? extends Map<? extends KVariable, ? extends K>>> executeAndMatch(K k, Optional<Integer> depth, Rule rule) {
-            K res = execute(k, depth).k();
-            return Tuple2.apply(res, match(res, rule));
+        public Tuple2<RewriterResult, List<? extends Map<? extends KVariable, ? extends K>>> executeAndMatch(K k, Optional<Integer> depth, Rule rule) {
+            RewriterResult res = execute(k, depth);
+            return Tuple2.apply(res, match(res.k(), rule));
         }
 
         @Override
         public List<K> prove(List<Rule> rules) {
             TermContext context = TermContext.of(rewritingContext);
-            KOREtoBackendKIL converter = new KOREtoBackendKIL(module, definition, context, false);
+            KOREtoBackendKIL converter = new KOREtoBackendKIL(module, definition, context, true, false);
             List<org.kframework.backend.java.kil.Rule> javaRules = rules.stream()
                     .map(r -> converter.convert(Optional.<Module>empty(), r))
                     .collect(Collectors.toList());
