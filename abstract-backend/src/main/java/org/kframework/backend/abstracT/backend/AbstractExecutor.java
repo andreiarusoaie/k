@@ -26,7 +26,6 @@ import org.kframework.backend.java.symbolic.PatternMatchRewriter;
 import org.kframework.backend.java.symbolic.PersistentUniqueList;
 import org.kframework.backend.java.symbolic.Substitution;
 import org.kframework.backend.java.symbolic.SymbolicRewriter;
-import org.kframework.backend.java.util.JavaKRunState;
 import org.kframework.compile.utils.RuleCompilerSteps;
 import org.kframework.kil.ASTNode;
 import org.kframework.kil.BoolBuiltin;
@@ -34,25 +33,19 @@ import org.kframework.kil.Rule;
 import org.kframework.kil.Term;
 import org.kframework.kil.loader.Context;
 import org.kframework.krun.KRunExecutionException;
-import org.kframework.krun.SubstitutionFilter;
-import org.kframework.krun.api.KRunGraph;
 import org.kframework.krun.api.KRunState;
 import org.kframework.krun.api.RewriteRelation;
-import org.kframework.krun.api.SearchResult;
 import org.kframework.krun.api.SearchResults;
-import org.kframework.krun.api.SearchType;
 import org.kframework.krun.tools.Executor;
 import org.kframework.parser.ProgramLoader;
+import org.kframework.rewriter.SearchType;
 import org.kframework.utils.Stopwatch;
-import org.kframework.utils.errorsystem.KEMException;
 import org.kframework.utils.file.FileUtil;
 
 import java.io.File;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -66,24 +59,20 @@ public class AbstractExecutor implements Executor {
     private final KILtoBackendJavaKILTransformer kilTransformer;
     private final GlobalContext globalContext;
     private final Provider<SymbolicRewriter> symbolicRewriter;
-    private final Provider<PatternMatchRewriter> patternMatchRewriter;
     private final KILtoBackendJavaKILTransformer transformer;
     private final Context context;
-    private final KRunState.Counter counter;
     private final Stopwatch sw;
     private final AbstractOptions abstractOptions;
     private final Provider<ProgramLoader> programLoader;
 
     @Inject
-    AbstractExecutor(org.kframework.kil.loader.Context context, KILtoBackendJavaKILTransformer kilTransformer, GlobalContext globalContext, Provider<SymbolicRewriter> symbolicRewriter, Provider<PatternMatchRewriter> patternMatchRewriter, KILtoBackendJavaKILTransformer transformer, Definition definition, KRunState.Counter counter, Stopwatch sw, AbstractOptions abstractOptions, Provider<ProgramLoader> programLoader) {
+    AbstractExecutor(org.kframework.kil.loader.Context context, KILtoBackendJavaKILTransformer kilTransformer, GlobalContext globalContext, Provider<SymbolicRewriter> symbolicRewriter, KILtoBackendJavaKILTransformer transformer, Definition definition, Stopwatch sw, AbstractOptions abstractOptions, Provider<ProgramLoader> programLoader) {
         this.context = context;
         this.kilTransformer = kilTransformer;
         this.globalContext = globalContext;
         this.symbolicRewriter = symbolicRewriter;
-        this.patternMatchRewriter = patternMatchRewriter;
         this.transformer = transformer;
         globalContext.setDefinition(definition);
-        this.counter = counter;
         this.sw = sw;
         this.abstractOptions = abstractOptions;
         this.programLoader = programLoader;
@@ -118,7 +107,6 @@ public class AbstractExecutor implements Executor {
 
         FileUtil.save(new File(abstractOptions.outputLog), Logger.getStringBuilder().toString());
         return new SearchResults(new ArrayList<>(), new DirectedSparseGraph<>());
-//        return internalSearch(bound, depth, searchType, pattern, cfg, compilationInfo, computeGraph);
     }
 
     private Map.Entry<ConstrainedTerm, ConstrainedTerm> getMainFormula(Goals goals) {
@@ -129,7 +117,7 @@ public class AbstractExecutor implements Executor {
     private List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> getListOfGoals(Goals abstractGraphSpecification) {
         List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> goals = new ArrayList<>();
         for (RLGoal RLGoal : abstractGraphSpecification.getRlGoals()) {
-            goals.add(new AbstractMap.SimpleEntry<ConstrainedTerm, ConstrainedTerm>(getConstrainedFormula(RLGoal)));
+            goals.add(new AbstractMap.SimpleEntry<>(getConstrainedFormula(RLGoal)));
         }
         return goals;
     }
@@ -163,7 +151,7 @@ public class AbstractExecutor implements Executor {
             Rule pattern) throws KRunExecutionException {
 
         // compute the first set of derivatives and then process each of them
-        List<ConstrainedTerm> derivatives = AbstractRewriter.oneSearchStep(main.getKey(), pattern, getGlobalContext(), getSymbolicRewriter(), getContext(), getTransformer());
+        List<ConstrainedTerm> derivatives = AbstractRewriter.oneSearchStep(main.getKey(), getSymbolicRewriter());
 
         AbstractGraph graph = AbstractGraph.empty();
         AbstractGraphNode root = new AbstractGraphNode(main.getKey(), main.getValue());
@@ -207,14 +195,18 @@ public class AbstractExecutor implements Executor {
                 if (graph.hasNode(circNode)) {
                     List<AbstractGraphNode> circDerivatives = graph.getSuccesorsByEdgeType(circNode, EdgeType.SYMBOLIC_STEP);
                     for (AbstractGraphNode circDerivative : circDerivatives) {
+                        // add an edge from current node to circularity's children
                         graph.addEdge(new AbstractGraphEdge(sourceNode, circDerivative, EdgeType.CIRCULARITY));
+//                        // TODO: instancenode
+//                        AbstractGraphNode instNode = new AbstractGraphNode(circ.getKey(), formula.getValue());
+//                        graph.addEdge(new AbstractGraphEdge(circDerivative, instNode, EdgeType.CIRCINSTANCE));
                     }
                 }
                 else {
                     // add circ in the graph in order to detect if it was processed at previous step
                     graph.addNode(circNode);
 
-                    List<ConstrainedTerm> circDerivatives = AbstractRewriter.oneSearchStep(circ.getKey(), pattern, getGlobalContext(), getSymbolicRewriter(), getContext(), getTransformer());
+                    List<ConstrainedTerm> circDerivatives = AbstractRewriter.oneSearchStep(circ.getKey(), getSymbolicRewriter());
                     for (ConstrainedTerm circDerivative : circDerivatives) {
                         // build a new node and add it to graph
                         AbstractGraphNode targetNode = new AbstractGraphNode(circDerivative, formula.getValue());
@@ -268,7 +260,7 @@ public class AbstractExecutor implements Executor {
             AbstractGraphNode toProcess = null;
             List<ConstrainedTerm> derivatives = null;
             for (AbstractGraphNode abstractGraphNode : frontier) {
-                List<ConstrainedTerm> cDerivatives = AbstractRewriter.oneSearchStep(abstractGraphNode.getLhs(), pattern, getGlobalContext(), getSymbolicRewriter(), getContext(), getTransformer());
+                List<ConstrainedTerm> cDerivatives = AbstractRewriter.oneSearchStep(abstractGraphNode.getLhs(), getSymbolicRewriter());
                 if (!abstractGraphNode.getLhs().implies(abstractGraphNode.getRhs()) &&
                         searchCircularity(abstractGraphNode.getLhs(), G) == null &&
                         !cDerivatives.isEmpty()) {
@@ -425,7 +417,7 @@ public class AbstractExecutor implements Executor {
                         node.setStatus(NodeStatus.INVALID_SYMBOLIC);
                     }
                     else {
-                        List<ConstrainedTerm> symbolicSteps = AbstractRewriter.oneSearchStep(node.getLhs(), pattern, getGlobalContext(), getSymbolicRewriter(), getContext(), getTransformer());
+                        List<ConstrainedTerm> symbolicSteps = AbstractRewriter.oneSearchStep(node.getLhs(), getSymbolicRewriter());
                         if (!listAsSetEquality(symbolicChildren, symbolicSteps)) {
                             node.setStatus(NodeStatus.INVALID_SYMBOLIC);
                         }
@@ -499,13 +491,9 @@ public class AbstractExecutor implements Executor {
 
     private RewriteRelation conventionalRewriteRun(ConstrainedTerm constrainedTerm, int bound, boolean computeGraph) {
         SymbolicRewriter rewriter = symbolicRewriter.get();
-        KRunState finalState = rewriter.rewrite(
-                constrainedTerm,
-                context,
-                bound,
-                computeGraph);
+        KRunState finalState =  rewriter.rewrite(constrainedTerm, bound);
 
-        return new RewriteRelation(finalState, rewriter.getExecutionGraph());
+        return new RewriteRelation(finalState, null);
     }
 
     /**
