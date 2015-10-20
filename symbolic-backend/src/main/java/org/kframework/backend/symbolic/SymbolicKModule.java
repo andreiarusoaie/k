@@ -7,7 +7,7 @@ import org.kframework.main.KModule;
 import java.util.List;
 
 /**
- * Created by andrei on 10/19/15.
+ * Created by Andrei on 10/19/15.
  */
 public class SymbolicKModule implements KModule {
 
@@ -28,7 +28,7 @@ public class SymbolicKModule implements KModule {
 
     @Override
     public List<Module> getDefinitionSpecificKRunModules() {
-        return ImmutableList.of();
+        return ImmutableList.of(new SymbolicDefinitionModule());
     }
 
     @Override

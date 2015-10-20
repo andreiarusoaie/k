@@ -13,7 +13,7 @@ import org.kframework.utils.file.FileUtil;
 import java.util.function.Function;
 
 /**
- * Created by andrei on 10/19/15.
+ * Created by Andrei on 10/19/15.
  */
 public class SymbolicBackend implements Backend{
     private final KExceptionManager kem;

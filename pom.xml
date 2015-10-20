@@ -15,9 +15,9 @@
     <module>java-backend</module>
     <module>coq-backend</module>
     <module>ocaml-backend</module>
-    <module>symbolic-backend</module>
     <module>sdf-parser</module>
     <module>tiny</module>
+    <module>symbolic-backend</module>
   </modules>
 
   <scm>

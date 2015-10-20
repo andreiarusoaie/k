@@ -7,7 +7,7 @@ import org.kframework.krun.api.io.FileSystem;
 import org.kframework.krun.ioserver.filesystem.portable.PortableFileSystem;
 
 /**
- * Created by andrei on 10/19/15.
+ * Created by Andrei on 10/19/15.
  */
 public class SymbolicBackendKompileModule extends AbstractModule {
 
