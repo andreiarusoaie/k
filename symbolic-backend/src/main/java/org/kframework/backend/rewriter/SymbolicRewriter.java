@@ -1,44 +1,45 @@
 package org.kframework.backend.rewriter;
 
-import org.kframework.RewriterResult;
-import org.kframework.definition.Rule;
-import org.kframework.kore.K;
-import org.kframework.kore.KVariable;
-import org.kframework.rewriter.Rewriter;
-import org.kframework.rewriter.SearchType;
-import scala.Tuple2;
+import com.google.inject.Inject;
+import org.kframework.backend.java.kil.ConstrainedTerm;
+import org.kframework.backend.java.kil.Definition;
+import org.kframework.backend.java.symbolic.JavaExecutionOptions;
+import org.kframework.kompile.KompileOptions;
+import org.kframework.krun.KRunExecutionException;
+import org.kframework.krun.api.KRunState;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * Created by Andrei on 10/20/15.
  */
-public class SymbolicRewriter implements Rewriter {
+public class SymbolicRewriter extends org.kframework.backend.java.symbolic.SymbolicRewriter {
 
-    @Override
-    public RewriterResult execute(K k, Optional<Integer> depth) {
-        throw new UnsupportedOperationException("run not supported");
+    @Inject
+    public SymbolicRewriter(Definition definition, KompileOptions kompileOptions, JavaExecutionOptions javaOptions, KRunState.Counter counter) {
+        super(definition, kompileOptions, javaOptions, counter);
     }
 
-    @Override
-    public List<? extends Map<? extends KVariable, ? extends K>> match(K k, Rule rule) {
-        throw new UnsupportedOperationException("match not supported");
+    /**
+     * Computes a list of {@link ConstrainedTerm} after one symbolic execution step
+     * @param constrainedTerm is the initial term to be executed
+     * @return a list of {@link ConstrainedTerm}
+     * @throws KRunExecutionException
+     */
+    public List<ConstrainedTerm> oneSearchStep(ConstrainedTerm constrainedTerm) throws KRunExecutionException {
+        List<ConstrainedTerm> terms = null;
+        ConstrainedTerm term = constrainedTerm;
+        int bound  = 100;
+        while (!transition && bound > 0) {
+            terms = computeRewriteStep(term, 1, true);
+            term = terms.get(0);
+            bound--;
+        }
+
+        return terms;
     }
 
-    @Override
-    public List<? extends Map<? extends KVariable, ? extends K>> search(K initialConfiguration, Optional<Integer> depth, Optional<Integer> bound, Rule pattern, SearchType searchType) {
-        throw new UnsupportedOperationException("search not supported");
-    }
-
-    @Override
-    public Tuple2<RewriterResult, List<? extends Map<? extends KVariable, ? extends K>>> executeAndMatch(K k, Optional<Integer> depth, Rule rule) {
-        throw new UnsupportedOperationException("exec and match not supported");
-    }
-
-    @Override
-    public List<K> prove(List<Rule> rules) {
-        throw new UnsupportedOperationException("prove not supported");
+    public List<ConstrainedTerm> oneStepWithRule(ConstrainedTerm constrainedTerm, org.kframework.backend.java.kil.Rule rule) {
+        return computeRewriteStepByRule(constrainedTerm, rule);
     }
 }

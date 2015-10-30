@@ -38,6 +38,6 @@ public class SymbolicKModule implements KModule {
 
     @Override
     public List<Module> getKRunModules(List<Module> definitionSpecificModules) {
-        return ImmutableList.of();
+        return ImmutableList.of(new SymbolicBackendKrunModule());
     }
 }
