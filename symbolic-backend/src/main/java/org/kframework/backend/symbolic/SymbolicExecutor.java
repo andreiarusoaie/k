@@ -39,7 +39,9 @@ import org.kframework.parser.ProgramLoader;
 import org.kframework.rewriter.SearchType;
 import org.kframework.utils.Stopwatch;
 import org.kframework.utils.errorsystem.KEMException;
+import org.kframework.utils.file.FileUtil;
 
+import java.io.File;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -100,20 +102,30 @@ public class SymbolicExecutor implements Executor {
             Map<Map.Entry<ConstrainedTerm, ConstrainedTerm>, org.kframework.backend.java.kil.Rule> correspondingRules = new HashMap<>();
             for (RLGoal rlGoal : goals.getRlGoals()) {
                 // build the new goal and put it in G
-                Map.Entry<ConstrainedTerm, ConstrainedTerm> g = new AbstractMap.SimpleEntry<>(getConstrainedFormula(rlGoal));
+                Map.Entry<ConstrainedTerm, ConstrainedTerm> g = new AbstractMap.SimpleEntry<>(getConstrainedFormula(rlGoal, false));
                 G.add(g);
 
                 // build the KIL rule and then transform it into a java KIL rule
                 Rule kilRule = getFormulaAsRule(rlGoal);
                 org.kframework.backend.java.kil.Rule javaKilRule = getKilTransformer().transformAndEval(kilRule);
-                correspondingRules.put(g, javaKilRule);
+                correspondingRules.put(g, javaKilRule.getFreshRule(getTermContext(javaKilRule.leftHandSide())));
             }
 
-            boolean proved = prove(derivatives(G), G, symbolicOptions.maxDepth, correspondingRules);
+            boolean proved = false;
+            List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> initialDerivatives = derivatives(G);
+            if (initialDerivatives == null || initialDerivatives.isEmpty()) {
+                Logger.failed("The initial goals are not derivable.");
+                System.out.println("The initial goals are not derivable.");
+            }
+            else  {
+                proved = prove(initialDerivatives, G, symbolicOptions.maxSteps, correspondingRules);
+            }
             // log status
             String status = proved ? "Proof succeeded!" : "Proof failed!";
-            Logger.putLine(status);
             System.out.println(status);
+
+            // save log
+            FileUtil.save(new File(symbolicOptions.outputLog), Logger.getStringBuilder().toString());
 
             return new SearchResults(new ArrayList<>(), new DirectedSparseGraph<>());
         }
@@ -174,32 +186,57 @@ public class SymbolicExecutor implements Executor {
 
     private boolean prove(List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G, List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G0, int depth, Map<Map.Entry<ConstrainedTerm, ConstrainedTerm>, org.kframework.backend.java.kil.Rule> correspondingRules) throws KRunExecutionException {
 
+        Logger.putLine("Steps left: " + depth + "  curent goals: ");
+        for (Map.Entry<ConstrainedTerm, ConstrainedTerm> g : G) {
+            Logger.putSimpleLine("Goal " + G.indexOf(g) + ":\n"  + g.getKey() + "\n=>\n" + g.getValue() + "\n");
+        }
+        Logger.putSimpleLine("\n");
         if (depth == 0) {
+            Logger.failed("Max depth reached!");
             return false;
         }
         else {
             -- depth;
             if (G.isEmpty()) {
+                Logger.putLine("Proof succeeded!");
                 return true;
             }
             else {
                 Map.Entry<ConstrainedTerm, ConstrainedTerm> currentGoal = G.remove(0);
+                Logger.putLine("Current goal: " + currentGoal.getKey() + "\n=>\n" + currentGoal.getValue());
                 if (currentGoal.getKey().implies(currentGoal.getValue())) {
+                    Logger.putLine("Implication succeeded: " + currentGoal.getKey() + "\nimplies\n" + currentGoal.getValue());
                     // continue
                     return prove(G, G0, depth, correspondingRules);
                 }
                 else {
+                    Logger.putLine("Implication failed: " + currentGoal.getKey() + "\ndoes not imply\n" + currentGoal.getValue() + ";\ncontinue...");
                     Map.Entry<ConstrainedTerm, ConstrainedTerm> circ = searchCircularity(currentGoal.getKey(), G0);
                     if (circ != null) {
+                        Logger.putLine("Circularity found: " + circ.getKey() + "\n=>\n" + circ.getValue());
                         List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> derWithCirc = derivativeWithRule(currentGoal, correspondingRules.get(circ));
                         if (derWithCirc != null && !derWithCirc.isEmpty()) {
+                            Logger.putLine("Added goal: derivative with circularity.");
                             G.addAll(derWithCirc);
+                        } else{
+                            Logger.putLine("The rewrite engine failed to compute the derivative of\n" + currentGoal.getKey() + "\n\nwith circularity\n\n" + circ + "\n.Failing...\n");
+                            return false;
                         }
                         return prove(G, G0, depth, correspondingRules);
                     }
                     else {
-                        G.addAll(derivative(currentGoal));
-                        return prove(G, G0, depth, correspondingRules);
+                        Logger.putLine("Circularity not found for current goal; continue...");
+                        List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> ders = derivative(currentGoal);
+                        if (ders != null && !ders.isEmpty()) {
+                            Logger.putLine("Compute derivates...");
+                            G.addAll(derivative(currentGoal));
+                            Logger.putLine("Derivatives added; continue...");
+                            return prove(G, G0, depth, correspondingRules);
+                        }
+                        else {
+                            Logger.failed("The left hand side of the current goal is not derivable: " + currentGoal.getKey());
+                            return  false;
+                        }
                     }
                 }
             }
@@ -233,6 +270,7 @@ public class SymbolicExecutor implements Executor {
             }
         });
     }
+
 
     private List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> derivatives(List<Map.Entry<ConstrainedTerm, ConstrainedTerm>> G) throws KRunExecutionException {
 
@@ -295,25 +333,23 @@ public class SymbolicExecutor implements Executor {
         return context;
     }
 
-    private Map.Entry<ConstrainedTerm, ConstrainedTerm> getMainFormula(Goals goals) {
-        return getConstrainedFormula(goals.getMainGoal());
-    }
-
 
     private Rule getFormulaAsRule(RLGoal rlGoal) {
         return  new Rule(rlGoal.getLhs(), rlGoal.getRhs(), rlGoal.getLhsConstraint(), rlGoal.getRhsConstraint(), getContext());
     }
 
-    private Map.Entry<ConstrainedTerm, ConstrainedTerm> getConstrainedFormula(RLGoal RLGoal) {
+    private Map.Entry<ConstrainedTerm, ConstrainedTerm> getConstrainedFormula(RLGoal RLGoal, boolean renamingEnabled) {
         TermContext termContext = TermContext.of(getGlobalContext());
 
         org.kframework.backend.java.kil.Term lhsTerm = getKilTransformer().transformAndEval(RLGoal.getLhs());
         org.kframework.backend.java.kil.Term lhsConstraint = getKilTransformer().transformAndEval(RLGoal.getLhsConstraint());
         ConstrainedTerm lhs = getConstrainedTerm(lhsTerm, lhsConstraint, termContext);
+        lhs = renamingEnabled ? replaceVariablesWithFresh(lhs) : lhs;
 
         org.kframework.backend.java.kil.Term rhsTerm = getKilTransformer().transformAndEval(RLGoal.getRhs());
         org.kframework.backend.java.kil.Term rhsConstraint = getKilTransformer().transformAndEval(RLGoal.getRhsConstraint());
         ConstrainedTerm rhs = getConstrainedTerm(rhsTerm, rhsConstraint, termContext);
+        rhs = renamingEnabled ? replaceVariablesWithFresh(rhs) : rhs;
 
         return new AbstractMap.SimpleEntry<>(lhs, rhs);
     }

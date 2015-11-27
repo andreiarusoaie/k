@@ -13,6 +13,10 @@ public class Logger {
         stringBuilder.append("[" + getTimeStamp() + "]: " + data + "\n\n");
     }
 
+    public static void putSimpleLine(String data) {
+        stringBuilder.append(data + "\n");
+    }
+
     public static void putLines(String... data) {
         String entryTimestamp = "[" + getTimeStamp() + "]: ";
         stringBuilder.append(entryTimestamp);

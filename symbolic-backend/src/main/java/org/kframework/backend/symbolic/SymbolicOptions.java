@@ -9,7 +9,10 @@ public class SymbolicOptions {
     @Parameter(names="--goals", description="Proves the goals from the specification (XML) file given as argument", required=false)
     public String goals = null;
 
-    @Parameter(names="--max-depth", description = "Maximum depth for symbolic execution (the default is 100 steps)", required = false)
-    public Integer maxDepth = 100;
+    @Parameter(names="--max-steps", description = "The maximum number of prover steps (the default is 100)", required = false)
+    public Integer maxSteps = 100;
+
+    @Parameter(names="--output-log", description="Save graph building logs into file", required=false)
+    public String outputLog = "proof-log.txt";
 
 }

@@ -75,7 +75,7 @@ public class SymbolicRewriter {
         return finalState;
     }
 
-    private List<ConstrainedTerm> computeRewriteStep(ConstrainedTerm subject, int step, boolean computeOne) {
+    protected List<ConstrainedTerm> computeRewriteStep(ConstrainedTerm subject, int step, boolean computeOne) {
         RuleAuditing.setAuditingRule(javaOptions, step, subject.termContext().definition());
         try {
             subject.termContext().setTopTerm(subject.term());
@@ -143,7 +143,7 @@ public class SymbolicRewriter {
         }
     }
 
-    private List<ConstrainedTerm> computeRewriteStepByRule(ConstrainedTerm subject, Rule rule) {
+    protected List<ConstrainedTerm> computeRewriteStepByRule(ConstrainedTerm subject, Rule rule) {
         List<ConstrainedTerm> results = Collections.emptyList();
         try {
             if (rule == RuleAuditing.getAuditingRule()) {

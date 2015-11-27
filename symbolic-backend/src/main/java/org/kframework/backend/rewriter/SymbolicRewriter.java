@@ -3,6 +3,8 @@ package org.kframework.backend.rewriter;
 import com.google.inject.Inject;
 import org.kframework.backend.java.kil.ConstrainedTerm;
 import org.kframework.backend.java.kil.Definition;
+import org.kframework.backend.java.kil.Term;
+import org.kframework.backend.java.symbolic.ConjunctiveFormula;
 import org.kframework.backend.java.symbolic.JavaExecutionOptions;
 import org.kframework.kompile.KompileOptions;
 import org.kframework.krun.KRunExecutionException;
@@ -27,16 +29,10 @@ public class SymbolicRewriter extends org.kframework.backend.java.symbolic.Symbo
      * @throws KRunExecutionException
      */
     public List<ConstrainedTerm> oneSearchStep(ConstrainedTerm constrainedTerm) throws KRunExecutionException {
-        List<ConstrainedTerm> terms = null;
-        ConstrainedTerm term = constrainedTerm;
-        int bound  = 100;
-        while (!transition && bound > 0) {
-            terms = computeRewriteStep(term, 1, true);
-            term = terms.get(0);
-            bound--;
-        }
-
-        return terms;
+        ConjunctiveFormula cF = constrainedTerm.constraint().simplify();
+        Term term = constrainedTerm.term().substituteAndEvaluate(cF.substitution(), constrainedTerm.termContext());
+        constrainedTerm = new ConstrainedTerm(term, cF);
+        return computeRewriteStep(constrainedTerm , 0, false);
     }
 
     public List<ConstrainedTerm> oneStepWithRule(ConstrainedTerm constrainedTerm, org.kframework.backend.java.kil.Rule rule) {
